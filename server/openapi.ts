@@ -1,0 +1,259 @@
+import { z } from "zod";
+import {
+  OpenAPIRegistry,
+  OpenApiGeneratorV3,
+  extendZodWithOpenApi,
+} from "@asteasolutions/zod-to-openapi";
+import { createEventSchema, updateEventSchema } from "./utils/validation.js";
+import { FOLDER_REGEX, SUBDOMAIN_REGEX } from "./config.js";
+
+extendZodWithOpenApi(z);
+
+const registry = new OpenAPIRegistry();
+
+const ProjectResponseSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  eventId: z.string(),
+  allowedMimeTypes: z.array(z.string()),
+  secured: z.boolean(),
+  allowGuestDownload: z.boolean(),
+  uploadMaxFileSizeBytes: z.number(),
+  uploadMaxTotalSizeBytes: z.number(),
+  createdAt: z.string().optional(),
+});
+
+const UpdateProjectResponseSchema = ProjectResponseSchema.extend({
+  ok: z.boolean(),
+});
+
+const ErrorKeySchema = z.enum([
+  "ADMIN_ACCESS_REQUIRED",
+  "GUEST_ACCESS_REQUIRED",
+  "INVALID_FILENAME",
+  "INVALID_FOLDER",
+  "INVALID_INPUT",
+  "INVALID_EVENT_ID",
+  "NO_FILES_AVAILABLE",
+  "EVENT_ID_TAKEN",
+  "EVENT_NOT_FOUND",
+]);
+
+const ErrorResponseSchema = z.object({
+  message: z.string(),
+  errorKey: ErrorKeySchema,
+  secured: z.boolean().optional(),
+  eventId: z.string().optional(),
+});
+
+const DeleteProjectResponseSchema = z.object({
+  message: z.string(),
+  ok: z.boolean(),
+});
+
+const FileEntrySchema = z.object({
+  name: z.string(),
+  size: z.number(),
+  createdAt: z.string(),
+});
+
+const ListFilesResponseSchema = z.object({
+  files: z.array(FileEntrySchema),
+  folders: z.array(z.string()),
+  folder: z.string(),
+});
+
+const UploadRejectSchema = z.object({
+  file: z.string(),
+  reason: z.string(),
+});
+
+const UploadResponseSchema = z.object({
+  message: z.string(),
+  uploaded: z.number(),
+  rejected: z.array(UploadRejectSchema).optional(),
+});
+
+const EventIdParamSchema = z.object({
+  eventId: z
+    .string()
+    .min(1)
+    .regex(SUBDOMAIN_REGEX, "Invalid event id"),
+});
+
+const FileParamSchema = EventIdParamSchema.extend({
+  filename: z.string().min(1),
+});
+
+const FolderQuerySchema = z.object({
+  folder: z
+    .string()
+    .regex(FOLDER_REGEX, "Invalid folder")
+    .optional(),
+});
+
+const FileUploadSchema = z.any().openapi({ type: "string", format: "binary" });
+const UploadRequestSchema = z.object({
+  files: z.array(FileUploadSchema),
+  from: z.string().optional(),
+});
+
+const BinaryResponseSchema = z.string().openapi({ type: "string", format: "binary" });
+
+registry.registerPath({
+  method: "get",
+  path: "/api/events/{eventId}",
+  request: { params: EventIdParamSchema },
+  responses: {
+    200: {
+      description: "Event info",
+      content: { "application/json": { schema: ProjectResponseSchema } },
+    },
+    400: { description: "Invalid event id", content: { "application/json": { schema: ErrorResponseSchema } } },
+    403: { description: "Access denied", content: { "application/json": { schema: ErrorResponseSchema } } },
+    404: { description: "Not found", content: { "application/json": { schema: ErrorResponseSchema } } },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/events",
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: createEventSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Event created",
+      content: { "application/json": { schema: ProjectResponseSchema } },
+    },
+    400: { description: "Invalid input", content: { "application/json": { schema: ErrorResponseSchema } } },
+    409: { description: "Event id taken", content: { "application/json": { schema: ErrorResponseSchema } } },
+  },
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/api/events/{eventId}",
+  request: {
+    params: EventIdParamSchema,
+    body: {
+      content: {
+        "application/json": { schema: updateEventSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Event updated",
+      content: { "application/json": { schema: UpdateProjectResponseSchema } },
+    },
+    400: { description: "Invalid input", content: { "application/json": { schema: ErrorResponseSchema } } },
+    403: { description: "Access denied", content: { "application/json": { schema: ErrorResponseSchema } } },
+    404: { description: "Not found", content: { "application/json": { schema: ErrorResponseSchema } } },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/api/events/{eventId}",
+  request: { params: EventIdParamSchema },
+  responses: {
+    200: {
+      description: "Event deleted",
+      content: { "application/json": { schema: DeleteProjectResponseSchema } },
+    },
+    403: { description: "Access denied", content: { "application/json": { schema: ErrorResponseSchema } } },
+    404: { description: "Not found", content: { "application/json": { schema: ErrorResponseSchema } } },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/events/{eventId}/files",
+  request: {
+    params: EventIdParamSchema,
+    query: FolderQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "List files",
+      content: { "application/json": { schema: ListFilesResponseSchema } },
+    },
+    400: { description: "Invalid input", content: { "application/json": { schema: ErrorResponseSchema } } },
+    403: { description: "Access denied", content: { "application/json": { schema: ErrorResponseSchema } } },
+    404: { description: "Not found", content: { "application/json": { schema: ErrorResponseSchema } } },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/events/{eventId}/files",
+  request: {
+    params: EventIdParamSchema,
+    body: {
+      content: {
+        "multipart/form-data": { schema: UploadRequestSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Files uploaded",
+      content: { "application/json": { schema: UploadResponseSchema } },
+    },
+    400: { description: "Invalid input", content: { "application/json": { schema: ErrorResponseSchema } } },
+    403: { description: "Access denied", content: { "application/json": { schema: ErrorResponseSchema } } },
+    404: { description: "Not found", content: { "application/json": { schema: ErrorResponseSchema } } },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/events/{eventId}/files/{filename}",
+  request: {
+    params: FileParamSchema,
+    query: FolderQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "File download",
+      content: { "application/octet-stream": { schema: BinaryResponseSchema } },
+    },
+    400: { description: "Invalid input", content: { "application/json": { schema: ErrorResponseSchema } } },
+    403: { description: "Access denied", content: { "application/json": { schema: ErrorResponseSchema } } },
+    404: { description: "Not found", content: { "application/json": { schema: ErrorResponseSchema } } },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/events/{eventId}/files.zip",
+  request: {
+    params: EventIdParamSchema,
+    query: FolderQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "Zip download",
+      content: { "application/zip": { schema: BinaryResponseSchema } },
+    },
+    400: { description: "Invalid input", content: { "application/json": { schema: ErrorResponseSchema } } },
+    403: { description: "Access denied", content: { "application/json": { schema: ErrorResponseSchema } } },
+    404: { description: "Not found", content: { "application/json": { schema: ErrorResponseSchema } } },
+  },
+});
+
+export const createOpenApiDocument = () => {
+  const generator = new OpenApiGeneratorV3(registry.definitions);
+  return generator.generateDocument({
+    openapi: "3.0.0",
+    info: {
+      title: "Party Upload API",
+      version: "1.0.0",
+    },
+  });
+};
