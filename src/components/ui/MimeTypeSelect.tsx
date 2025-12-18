@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 type MimeGroup = {
   id: string;
@@ -34,9 +35,11 @@ const MIME_GROUPS: MimeGroup[] = [
 const MIME_TYPE_REGEX = /^[\w.+-]+\/[\w.+*%-]+$/i;
 
 export function MimeTypeSelect({ value, onChange, disabled }: MimeTypeSelectProps) {
+  const { t } = useTranslation();
+
   const uniqueValues = useMemo(
     () => Array.from(new Set(value.map((v) => v.trim()).filter(Boolean))),
-    [value],
+    [value]
   );
 
   const toggleGroup = (group: MimeGroup) => {
@@ -59,7 +62,7 @@ export function MimeTypeSelect({ value, onChange, disabled }: MimeTypeSelectProp
     const raw = target.value.trim();
     if (!raw) return;
     if (!MIME_TYPE_REGEX.test(raw)) {
-      target.setCustomValidity("Ungültiger MIME-Type.");
+      target.setCustomValidity(t("invalidMimeType"));
       target.reportValidity();
       return;
     }
@@ -69,22 +72,32 @@ export function MimeTypeSelect({ value, onChange, disabled }: MimeTypeSelectProp
   };
 
   return (
-    <div>
-      <div className="tag-input" aria-label="Erlaubte MIME-Typen">
+    <div data-testid="mime-select">
+      <div
+        className="tag-input"
+        aria-label={t("MimeTypeSelect.allowedMimeTypes")}
+        data-testid="mime-select-input"
+      >
         {uniqueValues.map((mime) => (
-          <span className="tag-chip" key={mime}>
+          <span className="tag-chip" key={mime} data-testid="mime-tag">
             {mime}
-            <button type="button" onClick={() => removeTag(mime)} disabled={disabled}>
+            <button
+              type="button"
+              onClick={() => removeTag(mime)}
+              disabled={disabled}
+              data-testid="mime-remove"
+            >
               ×
             </button>
           </span>
         ))}
         <input
           type="text"
-          placeholder="mime/type hinzufügen (Enter)"
+          placeholder={t("MimeTypeSelect.addMimeTypeHint")}
           onKeyDown={handleCustomAdd}
           onInput={(event) => event.currentTarget.setCustomValidity("")}
           disabled={disabled}
+          data-testid="mime-input"
         />
       </div>
       <div className="tag-options">
@@ -97,13 +110,14 @@ export function MimeTypeSelect({ value, onChange, disabled }: MimeTypeSelectProp
               className={`ghost${active ? " active" : ""}`}
               onClick={() => toggleGroup(group)}
               disabled={disabled}
+              data-testid={`mime-group-${group.id}`}
             >
               {group.label}
             </button>
           );
         })}
       </div>
-      <p className="helper">Du kannst Gruppen antippen oder eigene MIME-Types mit Enter hinzufügen.</p>
+      <p className="helper">{t("MimeTypeSelect.helperHint")}</p>
     </div>
   );
 }

@@ -1,16 +1,21 @@
-const envMainDomain = (import.meta.env.VITE_MAIN_DOMAIN as string | undefined) ?? "";
+export const apiBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "").replace(
+  /\/$/,
+  ""
+);
 
-const deriveMainDomain = () => {
-  if (typeof window === "undefined") return envMainDomain || "";
-  const host = window.location.hostname.toLowerCase();
-  const parts = host.split(".").filter(Boolean);
-  if (parts.length <= 2) return host;
-  return parts.slice(-2).join(".");
+const parseNumberEnv = (value?: string) => {
+  if (!value) return undefined;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : undefined;
 };
 
-export const mainDomain = envMainDomain || deriveMainDomain();
+export const APP_CONFIG_TTL_MS =
+  parseNumberEnv(import.meta.env.VITE_APP_CONFIG_TTL_MS as string | undefined) ?? 5 * 60 * 1000;
 
-export const apiBase =
-  ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "").replace(/\/$/, "");
+export const UI_FEEDBACK_TIMEOUT_MS = 3000;
 
-export const SUBDOMAIN_REGEX = /^[-a-z0-9]+$/;
+export const EVENTNAME_REGEX = /^[a-zA-Z0-9-]+$/;
+export const SUBDOMAIN_REGEX = /^(?!-)[a-zA-Z0-9-]{1,63}(?<!-)$/;
+export const NOT_ALLOWED_EVENTNAMES_REGEX =
+  /^(?!\b(admin|login|logout|api|docs|static|public|uploads)\b).+$/i;
+export const FOLDER_REGEX = /^[A-Za-z0-9 -]+$/;

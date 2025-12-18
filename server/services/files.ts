@@ -1,23 +1,26 @@
 import path from "node:path";
-import { mkdir, readdir, rename, stat } from "node:fs/promises";
+import { copyFile, mkdir, readdir, stat, unlink } from "node:fs/promises";
 import fs from "node:fs";
 import archiver from "archiver";
 import { DATA_ROOT_PATH } from "../config.js";
-import { FILES_DIR_NAME } from "../constants.js";
+import { FILES_DIR_NAME, UPLOAD_DIR_NAME } from "../constants.js";
 import { FileEntry, ListFilesResult, MoveUploadedFilesResult } from "../types.js";
 
-export const filesDir = (subdomain: string, folder?: string | null) =>
-  path.join(DATA_ROOT_PATH, subdomain, FILES_DIR_NAME, folder || "");
+export const filesDir = (rootEventFolder: string, folder?: string | null) =>
+  path.join(DATA_ROOT_PATH, rootEventFolder, FILES_DIR_NAME, folder || "");
+
+export const uploadDir = (rootEventFolder: string, folder?: string | null) =>
+  path.join(DATA_ROOT_PATH, rootEventFolder, UPLOAD_DIR_NAME, folder || "");
 
 export const listFiles = async (dir: string): Promise<ListFilesResult> => {
   let entries: FileEntry[] = [];
-  let folders: string[] = [];
+  const folders: string[] = [];
 
   try {
-    const dirents = await readdir(dir, { withFileTypes: true });
+    const directoryContent = await readdir(dir, { withFileTypes: true });
     const fileNames: string[] = [];
 
-    for (const d of dirents) {
+    for (const d of directoryContent) {
       if (d.isDirectory()) {
         folders.push(d.name);
       } else if (d.isFile()) {
@@ -29,10 +32,11 @@ export const listFiles = async (dir: string): Promise<ListFilesResult> => {
       fileNames.map(async (name) => {
         const s = await stat(path.join(dir, name));
         return { name, size: s.size, createdAt: s.mtime.toISOString() };
-      }),
+      })
     );
-  } catch (error: any) {
-    if (error.code === "ENOENT") {
+  } catch (error: unknown) {
+    const err = error as NodeJS.ErrnoException;
+    if (err?.code === "ENOENT") {
       entries = [];
     } else {
       throw error;
@@ -43,21 +47,36 @@ export const listFiles = async (dir: string): Promise<ListFilesResult> => {
 };
 
 export const moveUploadedFiles = async (
-  subdomain: string,
-  folder: string | null,
-  uploads: Express.Multer.File[],
-  findUniqueName: (dir: string, originalName: string) => string,
+  rootEventFolderName: string,
+  folder: string,
+  uploads: Express.Multer.File[]
 ): Promise<MoveUploadedFilesResult> => {
-  if (!uploads.length || !folder) return { moved: 0 };
-
-  const targetDir = filesDir(subdomain, folder);
+  if (!uploads.length) return { moved: 0 };
+  const targetDir = filesDir(rootEventFolderName, folder);
   await mkdir(targetDir, { recursive: true });
 
   let moved = 0;
   for (const file of uploads) {
-    const unique = findUniqueName(targetDir, file.filename);
-    await rename(file.path, path.join(targetDir, unique));
-    moved += 1;
+    const parsed = path.parse(file.originalname);
+    let counter = 0;
+    while (true) {
+      const suffix = counter === 0 ? "" : `_${counter}`;
+      const candidate = `${parsed.name}${suffix}${parsed.ext}`;
+      const targetPath = path.join(targetDir, candidate);
+      try {
+        await copyFile(file.path, targetPath, fs.constants.COPYFILE_EXCL);
+        await unlink(file.path);
+        moved += 1;
+        break;
+      } catch (error) {
+        const err = error as NodeJS.ErrnoException;
+        if (err?.code === "EEXIST") {
+          counter += 1;
+          continue;
+        }
+        throw error;
+      }
+    }
   }
 
   return { moved };
@@ -69,10 +88,13 @@ export const createZipArchive = (dir: string) => {
   return archive;
 };
 
-export const ensureFilesDir = (subdomain: string) => {
-  const target = filesDir(subdomain);
+export const ensureFilesDir = (rootEventFolder: string) => {
+  const target = filesDir(rootEventFolder);
   fs.mkdirSync(target, { recursive: true });
   return target;
 };
-
-
+export const ensureUploadsDir = (rootEventFolder: string) => {
+  const target = uploadDir(rootEventFolder);
+  fs.mkdirSync(target, { recursive: true });
+  return target;
+};

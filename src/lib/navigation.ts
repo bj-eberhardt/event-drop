@@ -1,15 +1,17 @@
-import { mainDomain } from "../constants";
-
-export const redirectToHome = (): void => {
+export const redirectToHome = (domain: string): void => {
   if (typeof window === "undefined") return;
   const { protocol, port } = window.location;
   const portSegment = port ? `:${port}` : "";
-  window.location.href = `${protocol}//${mainDomain}${portSegment}/`;
+  window.location.href = `${protocol}//${domain}${portSegment}/`;
 };
 
-export const redirectToAdmin = (subdomain: string): void => {
+export const redirectToAdmin = (eventId: string, domain: string, supportSubdomain = true): void => {
   if (typeof window === "undefined") return;
   const { protocol, port } = window.location;
   const portSegment = port ? `:${port}` : "";
-  window.location.href = `${protocol}//${subdomain}.${mainDomain}${portSegment}/admin`;
+  if (supportSubdomain) {
+    window.location.href = `${protocol}//${eventId}.${domain}${portSegment}/admin`;
+  } else {
+    window.location.href = `${protocol}//${domain}${portSegment}/${eventId}/admin`;
+  }
 };

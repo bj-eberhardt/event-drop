@@ -1,0 +1,9 @@
+export { DownloadIcon } from "./DownloadIcon";
+export { TrashIcon } from "./TrashIcon";
+export { PrevIcon } from "./PrevIcon";
+export { NextIcon } from "./NextIcon";
+export { CloseIcon } from "./CloseIcon";
+export { FolderIcon } from "./FolderIcon";
+export { EditIcon } from "./EditIcon";
+export { LogoutIcon } from "./LogoutIcon";
+export { ArchiveIcon } from "./ArchiveIcon";

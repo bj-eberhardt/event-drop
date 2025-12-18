@@ -13,20 +13,27 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - VITE_API_BASE_URL=http://localhost:${API_PORT:-8080}
-      - VITE_MAIN_DOMAIN=localhost
 
   api:
     build:
       context: ../..
       dockerfile: docker/Dockerfile
       target: deps
-    command: npm run dev:api
+    command: >
+      ./node_modules/.bin/nodemon
+      --legacy-watch
+      --watch server
+      --ext ts,tsx,js,json
+      --exec "node --inspect=0.0.0.0:9229 --enable-source-maps --require /app/node_modules/tsx/dist/preflight.cjs --import file:///app/node_modules/tsx/dist/loader.mjs server/index.ts"
+
     ports:
       - "${API_PORT:-8080}:8080"
+      - "${NODE_DEBUG_PORT:-9229}:9229"
     volumes:
       - ../../:/app
       - /app/node_modules
-      - project-data:/data/projects
+      - ./project-data:/data/projects
+      - ./project-config:/config
     environment:
       - DATA_ROOT_PATH=/data/projects
       - PORT=8080
@@ -34,8 +41,8 @@ services:
       - UPLOAD_MAX_TOTAL_SIZE_BYTES=${UPLOAD_MAX_TOTAL_SIZE_BYTES:-0}
       - CHOKIDAR_USEPOLLING=true
       - CORS_ORIGIN=http://localhost:${FRONTEND_PORT:-5173},http://*.localhost:${FRONTEND_PORT:-5173}
-      - VITE_MAIN_DOMAIN=localhost
+      - NODE_OPTIONS=""
+      - LOG_LEVEL=debug
 
 volumes:
   project-data:
-

@@ -1,64 +1,62 @@
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { ApiClient } from "../../api/client";
 import { ModalDialog } from "../ui/ModalDialog";
 
-type DeleteProjectSectionProps = {
+type DeleteEventSectionProps = {
   subdomain: string;
   apiClient: ApiClient;
   onDeleteSuccess: () => void;
   onApiError: (error: unknown, defaultMessage: string) => void;
 };
 
-export function DeleteProjectSection({
+export function DeleteEventSection({
   subdomain,
   apiClient,
   onDeleteSuccess,
   onApiError,
-}: DeleteProjectSectionProps) {
+}: DeleteEventSectionProps) {
+  const { t } = useTranslation();
   const [deleteValue, setDeleteValue] = useState("");
   const [deleteMessage, setDeleteMessage] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const confirmDeleteProject = useCallback(() => {
+  const confirmDeleteEvent = useCallback(() => {
     setShowDeleteConfirm(true);
   }, []);
 
-  const cancelDeleteProject = useCallback(() => {
+  const cancelDeleteEvent = useCallback(() => {
     setShowDeleteConfirm(false);
     setDeleteMessage("");
   }, []);
 
-  const deleteProject = useCallback(async () => {
+  const deleteEvent = useCallback(async () => {
     setDeleteMessage("");
     try {
       await apiClient.deleteProject(subdomain);
       setShowDeleteConfirm(false);
       onDeleteSuccess();
     } catch (error) {
-      onApiError(error, "Löschen fehlgeschlagen.");
-      const errMessage = error instanceof Error ? error.message : "Löschen fehlgeschlagen.";
+      onApiError(error, t("DeleteEventSection.deleteFailed"));
+      const errMessage =
+        error instanceof Error ? error.message : t("DeleteEventSection.deleteFailed");
       setDeleteMessage(errMessage);
     }
-  }, [apiClient, onApiError, onDeleteSuccess, subdomain]);
+  }, [apiClient, onApiError, onDeleteSuccess, subdomain, t]);
 
   return (
     <>
-      <div className="form-card danger-zone">
-        <h2>Projekt löschen</h2>
-        <p className="helper">
-          Bitte tippe die Subdomain zur Bestätigung: <strong>{subdomain}</strong>
-        </p>
-        <p className="helper status bad">
-          Hinweis: Nach dem Löschen können Gäste keine Dateien mehr hochladen und alle Daten (inkl.
-          Dateien und Konfiguration) werden endgültig entfernt. Bitte vorab alle benötigten Dateien
-          herunterladen.
-        </p>
+      <div className="form-card danger-zone" data-testid="admin-delete-section">
+        <h2 data-testid="admin-delete-title">{t("DeleteEventSection.title")}</h2>
+        <p className="helper">{t("DeleteEventSection.confirmLabel", { subdomain })}</p>
+        <p className="helper status bad">{t("DeleteEventSection.warning")}</p>
         <div className="field">
           <input
             type="text"
             value={deleteValue}
             onChange={(event) => setDeleteValue(event.target.value.trim())}
             placeholder={subdomain}
+            data-testid="admin-delete-input"
           />
         </div>
         {deleteMessage ? <p className="helper status bad">{deleteMessage}</p> : null}
@@ -67,25 +65,26 @@ export function DeleteProjectSection({
             type="button"
             className="danger"
             disabled={deleteValue !== subdomain}
-            onClick={confirmDeleteProject}
+            onClick={confirmDeleteEvent}
+            data-testid="admin-delete-open"
           >
-            Projekt endgültig löschen
+            {t("DeleteEventSection.deleteButton")}
           </button>
         </div>
       </div>
       <ModalDialog
         open={showDeleteConfirm}
-        title="Projekt löschen bestätigen"
-        subtitle="Diese Aktion kann nicht rückgängig gemacht werden"
-        onCancel={cancelDeleteProject}
-        onConfirm={deleteProject}
-        confirmLabel="Endgültig löschen"
+        title={t("DeleteEventSection.dialogTitle")}
+        subtitle={t("DeleteEventSection.dialogSubtitle")}
+        onCancel={cancelDeleteEvent}
+        onConfirm={deleteEvent}
+        confirmLabel={t("DeleteEventModal.confirm")}
       >
         <p className="helper" style={{ textAlign: "left" }}>
-          Möchtest du das Projekt <strong>{subdomain}</strong> wirklich endgültig löschen?
+          {t("DeleteEventSection.dialogQuestion", { subdomain })}
         </p>
         <p className="helper status bad" style={{ marginTop: "12px", textAlign: "left" }}>
-          Alle Dateien und Konfigurationen werden unwiderruflich entfernt.
+          {t("DeleteEventSection.dialogWarning")}
         </p>
         {deleteMessage ? (
           <p className="helper status bad" style={{ marginTop: "12px", textAlign: "left" }}>

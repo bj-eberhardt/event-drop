@@ -2,11 +2,18 @@ import path from "node:path";
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import fs from "node:fs";
 import bcrypt from "bcryptjs";
-import { MAIN_DOMAIN, DATA_ROOT_PATH } from "../config.js";
+import { DATA_ROOT_PATH } from "../config.js";
 import { EventConfig } from "../types.js";
 
-const projectPath = (subdomain: string) =>
-  path.join(DATA_ROOT_PATH, subdomain, "project.json");
+export class EventAlreadyExistsError extends Error {
+  constructor(eventId: string) {
+    super(`Event ${eventId} already exists`);
+    this.name = "EventAlreadyExistsError";
+  }
+}
+
+const projectPath = (eventFolderName: string) =>
+  path.join(DATA_ROOT_PATH, eventFolderName, "project.json");
 
 const normalizeProject = (config: EventConfig): EventConfig => ({
   ...config,
@@ -29,22 +36,25 @@ export const ensureBaseDir = async () => {
   await mkdir(DATA_ROOT_PATH, { recursive: true });
 };
 
-export const isEventIdAvailable = async (subdomain: string): Promise<boolean> => {
+const isErrnoException = (error: unknown): error is NodeJS.ErrnoException =>
+  Boolean(error) && typeof error === "object" && "code" in (error as NodeJS.ErrnoException);
+
+export const isEventIdAvailable = async (eventId: string): Promise<boolean> => {
   try {
-    await access(path.join(DATA_ROOT_PATH, subdomain));
+    await access(path.join(DATA_ROOT_PATH, eventId));
     return false;
-  } catch (error: any) {
-    if (error.code === "ENOENT") return true;
+  } catch (error: unknown) {
+    if (isErrnoException(error) && error.code === "ENOENT") return true;
     throw error;
   }
 };
 
-export const getEvent = async (subdomain: string): Promise<EventConfig | null> => {
+export const getEvent = async (eventId: string): Promise<EventConfig | null> => {
   try {
-    const raw = await readFile(projectPath(subdomain), "utf8");
+    const raw = await readFile(projectPath(eventId), "utf8");
     return normalizeProject(JSON.parse(raw) as EventConfig);
-  } catch (error: any) {
-    if (error.code === "ENOENT") return null;
+  } catch (error: unknown) {
+    if (isErrnoException(error) && error.code === "ENOENT") return null;
     throw error;
   }
 };
@@ -64,8 +74,17 @@ export const createEventConfig = async (params: {
   guestPassword: string;
   adminPassword: string;
   allowedMimeTypes?: string[];
+  allowGuestDownload?: boolean;
 }): Promise<EventConfig> => {
-  const { name, description, eventId, guestPassword, adminPassword, allowedMimeTypes } = params;
+  const {
+    name,
+    description,
+    eventId,
+    guestPassword,
+    adminPassword,
+    allowedMimeTypes,
+    allowGuestDownload,
+  } = params;
   const mimeTypes = Array.isArray(allowedMimeTypes)
     ? allowedMimeTypes.filter(Boolean).map((m) => m.trim())
     : [];
@@ -73,12 +92,11 @@ export const createEventConfig = async (params: {
     name: name.trim(),
     description: description?.trim() || undefined,
     eventId: eventId,
-    domain: `${eventId}.${MAIN_DOMAIN}`,
     createdAt: new Date().toISOString(),
     allowedMimeTypes: mimeTypes,
     settings: {
       rootPath: DATA_ROOT_PATH,
-      allowGuestDownload: false,
+      allowGuestDownload: Boolean(allowGuestDownload),
     },
     auth: {
       guestPasswordHash: guestPassword ? await bcrypt.hash(guestPassword, 10) : null,
@@ -87,8 +105,32 @@ export const createEventConfig = async (params: {
   };
 };
 
-export const deleteEvent = async (subdomain: string) => {
-  const dir = path.join(DATA_ROOT_PATH, subdomain);
+export const createEvent = async (params: {
+  name: string;
+  description?: string;
+  eventId: string;
+  guestPassword: string;
+  adminPassword: string;
+  allowedMimeTypes?: string[];
+  allowGuestDownload?: boolean;
+}): Promise<EventConfig> => {
+  const event = await createEventConfig(params);
+  const partyDir = path.join(DATA_ROOT_PATH, event.eventId);
+  try {
+    await mkdir(partyDir, { recursive: false });
+  } catch (error: unknown) {
+    if (isErrnoException(error) && error.code === "EEXIST") {
+      throw new EventAlreadyExistsError(event.eventId);
+    }
+    throw error;
+  }
+
+  await saveEvent(event);
+  return event;
+};
+
+export const deleteEvent = async (eventId: string) => {
+  const dir = path.join(DATA_ROOT_PATH, eventId);
   await rm(dir, { recursive: true, force: true });
 };
 
@@ -101,4 +143,3 @@ export const findUniqueName = (dir: string, originalName: string) => {
   }
   return candidate;
 };
-

@@ -26,7 +26,7 @@ export function PasswordPrompt({
   const [password, setPassword] = useState(initialPassword);
 
   return (
-    <main className="form-page">
+    <main className="form-page" data-testid="password-prompt">
       <h1>{title}</h1>
       <p className="lede">{description}</p>
       <form
@@ -35,6 +35,7 @@ export function PasswordPrompt({
           event.preventDefault();
           onSubmit(password, event);
         }}
+        data-testid="password-form"
       >
         <label className="field">
           <span>{passwordLabel}</span>
@@ -43,14 +44,24 @@ export function PasswordPrompt({
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
+            data-testid="password-input"
           />
         </label>
-        {message ? <p className="helper status bad">{message}</p> : null}
+        {message ? (
+          <p className="helper status bad" data-testid="password-error">
+            {message}
+          </p>
+        ) : null}
         <div className="actions">
-          <button type="submit" className="primary">
+          <button type="submit" className="primary" data-testid="password-submit">
             {primaryLabel}
           </button>
-          <button type="button" className="ghost" onClick={onSecondary}>
+          <button
+            type="button"
+            className="ghost"
+            onClick={onSecondary}
+            data-testid="password-secondary"
+          >
             {secondaryLabel}
           </button>
         </div>

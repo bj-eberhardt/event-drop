@@ -1,17 +1,20 @@
 import { apiBase } from "../constants";
 import type {
   ApiErrorResponse,
-  CreateProjectRequest,
-  CreateProjectResponse,
-  DeleteProjectResponse,
+  CreateEventRequest,
+  CreateEventResponse,
+  DeleteEventResponse,
   DownloadFileRequest,
+  DeleteFileRequest,
+  DeleteFileResponse,
   ListFilesRequest,
   ListFilesResponse,
-  ProjectInfo,
-  UpdateProjectRequest,
-  UpdateProjectResponse,
+  EventInfo,
+  UpdateEventRequest,
+  UpdateEventResponse,
   UploadFilesRequest,
   UploadFilesResponse,
+  AppConfigResponse,
 } from "./types";
 
 /**
@@ -30,36 +33,12 @@ export class ApiError extends Error {
 }
 
 /**
- * API Client Builder
- * Allows configuring guestToken or adminToken for authentication
+ * Network error type for upload retries
  */
-export class ApiClientBuilder {
-  private guestToken?: string;
-  private adminToken?: string;
-
-  /**
-   * Set the guest token for authentication
-   */
-  withGuestToken(token: string): this {
-    this.guestToken = token;
-    this.adminToken = undefined; // Only one token type at a time
-    return this;
-  }
-
-  /**
-   * Set the admin token for authentication
-   */
-  withAdminToken(token: string): this {
-    this.adminToken = token;
-    this.guestToken = undefined; // Only one token type at a time
-    return this;
-  }
-
-  /**
-   * Build the API client with the configured tokens
-   */
-  build(): ApiClient {
-    return new ApiClient(this.guestToken, this.adminToken);
+export class NetworkError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NetworkError";
   }
 }
 
@@ -68,19 +47,12 @@ export class ApiClientBuilder {
  * Handles all API calls to the backend
  */
 export class ApiClient {
-  private guestToken?: string;
-  private adminToken?: string;
+  private readonly guestToken?: string;
+  private readonly adminToken?: string;
 
   constructor(guestToken?: string, adminToken?: string) {
     this.guestToken = guestToken;
     this.adminToken = adminToken;
-  }
-
-  /**
-   * Create a new builder instance
-   */
-  static builder(): ApiClientBuilder {
-    return new ApiClientBuilder();
   }
 
   /**
@@ -120,10 +92,7 @@ export class ApiClient {
   /**
    * Handle API response and parse JSON or blob
    */
-  private async handleResponse<T>(
-    response: Response,
-    returnBlob = false,
-  ): Promise<T> {
+  private async handleResponse<T>(response: Response, returnBlob = false): Promise<T> {
     if (returnBlob) {
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({ message: "Request failed" }));
@@ -144,47 +113,36 @@ export class ApiClient {
   /**
    * Get project information
    * Requires guest access if project is secured
-   * @throws Error with message "Projekt nicht gefunden." if project doesn't exist (404)
-   * @throws Error with message from API if authentication fails (403) or other error
+   * @throws Error if project doesn't exist (404)
+   * @throws Error if authentication fails (403, 401) or other error
    */
-  async getProject(eventId: string): Promise<ProjectInfo> {
+  async getEvent(eventId: string): Promise<EventInfo> {
     const response = await fetch(`${apiBase}/api/events/${encodeURIComponent(eventId)}`, {
       headers: this.getAuthHeader(),
     });
 
     if (response.status === 404) {
-      throw new Error("Projekt nicht gefunden.");
+      // throw new Error("Event not found.");
     }
 
-    return this.handleResponse<ProjectInfo>(response);
+    return this.handleResponse<EventInfo>(response);
   }
 
   /**
    * Check if subdomain is available
    * Returns null if available, ProjectInfo if taken
    */
-  async checkSubdomainAvailability(subdomain: string): Promise<ProjectInfo | null> {
+  async checkSubdomainAvailability(subdomain: string): Promise<boolean> {
     const response = await fetch(`${apiBase}/api/events/${encodeURIComponent(subdomain)}`, {
       headers: this.getAuthHeader(),
     });
-
-    if (response.status === 404) {
-      return null; // Available
-    }
-
-    if (response.ok) {
-      return this.handleResponse<ProjectInfo>(response);
-    }
-
-    // Error case
-    const error = await response.json();
-    throw new Error((error as ApiErrorResponse).message || "Prüfung fehlgeschlagen.");
+    return response.status === 404;
   }
 
   /**
-   * Create a new project
+   * Create a new event
    */
-  async createProject(request: CreateProjectRequest): Promise<CreateProjectResponse> {
+  async createEvent(request: CreateEventRequest): Promise<CreateEventResponse> {
     const response = await fetch(`${apiBase}/api/events`, {
       method: "POST",
       headers: {
@@ -194,30 +152,27 @@ export class ApiClient {
       body: JSON.stringify(request),
     });
 
-    return this.handleResponse<CreateProjectResponse>(response);
+    return this.handleResponse<CreateEventResponse>(response);
   }
 
   /**
-   * Delete a project
+   * Delete an event
    * Requires admin access
    */
-  async deleteProject(eventId: string): Promise<DeleteProjectResponse> {
+  async deleteProject(eventId: string): Promise<DeleteEventResponse> {
     const response = await fetch(`${apiBase}/api/events/${encodeURIComponent(eventId)}`, {
       method: "DELETE",
       headers: this.getAuthHeader(),
     });
 
-    return this.handleResponse<DeleteProjectResponse>(response);
+    return this.handleResponse<DeleteEventResponse>(response);
   }
 
   /**
-   * Update a project configuration
+   * Update an event's configuration
    * Requires admin access
    */
-  async updateProject(
-    eventId: string,
-    request: UpdateProjectRequest,
-  ): Promise<UpdateProjectResponse> {
+  async updateEvent(eventId: string, request: UpdateEventRequest): Promise<UpdateEventResponse> {
     const response = await fetch(`${apiBase}/api/events/${encodeURIComponent(eventId)}`, {
       method: "PATCH",
       headers: {
@@ -227,12 +182,12 @@ export class ApiClient {
       body: JSON.stringify(request),
     });
 
-    return this.handleResponse<UpdateProjectResponse>(response);
+    return this.handleResponse<UpdateEventResponse>(response);
   }
 
   /**
-   * List files in a project
-   * Requires admin access
+   * List files of an event
+   * Requires admin access or guest access
    */
   async listFiles(eventId: string, request?: ListFilesRequest): Promise<ListFilesResponse> {
     const params = new URLSearchParams();
@@ -245,15 +200,15 @@ export class ApiClient {
       `${apiBase}/api/events/${encodeURIComponent(eventId)}/files${queryString}`,
       {
         headers: this.getAuthHeader(),
-      },
+      }
     );
 
     return this.handleResponse<ListFilesResponse>(response);
   }
 
   /**
-   * Upload files to a project
-   * Requires guest access if project is secured
+   * Upload files to an event
+   * Requires guest access if event is secured
    */
   async uploadFiles(eventId: string, request: UploadFilesRequest): Promise<UploadFilesResponse> {
     const formData = new FormData();
@@ -262,21 +217,82 @@ export class ApiClient {
       formData.append("from", request.from);
     }
 
-    const response = await fetch(
-      `${apiBase}/api/events/${encodeURIComponent(eventId)}/files`,
-      {
-        method: "POST",
-        headers: this.getAuthHeader(),
-        body: formData,
-      },
-    );
+    const response = await fetch(`${apiBase}/api/events/${encodeURIComponent(eventId)}/files`, {
+      method: "POST",
+      headers: this.getAuthHeader(),
+      body: formData,
+    });
 
     return this.handleResponse<UploadFilesResponse>(response);
   }
 
   /**
-   * Download a file from a project
-   * Requires admin access
+   * Upload a single file with progress tracking
+   */
+  async uploadFile(
+    eventId: string,
+    request: {
+      file: File;
+      from?: string;
+      onProgress?: (progress: { loaded: number; total: number }) => void;
+      signal?: AbortSignal;
+    }
+  ): Promise<UploadFilesResponse> {
+    const formData = new FormData();
+    formData.append("files", request.file);
+    if (request.from) {
+      formData.append("from", request.from);
+    }
+
+    return new Promise<UploadFilesResponse>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${apiBase}/api/events/${encodeURIComponent(eventId)}/files`);
+
+      const headers = this.getAuthHeader();
+      Object.entries(headers).forEach(([key, value]) => {
+        xhr.setRequestHeader(key, value);
+      });
+
+      xhr.responseType = "json";
+
+      xhr.upload.onprogress = (event) => {
+        const total = event.lengthComputable ? event.total : request.file.size;
+        request.onProgress?.({ loaded: event.loaded, total });
+      };
+
+      xhr.onload = () => {
+        const status = xhr.status;
+        const response = xhr.response ?? {};
+        if (status >= 200 && status < 300) {
+          resolve(response as UploadFilesResponse);
+          return;
+        }
+        const message = (response as ApiErrorResponse).message || "Request failed";
+        reject(new ApiError(message, status, response));
+      };
+
+      xhr.onerror = () => {
+        reject(new NetworkError("Network error while uploading."));
+      };
+
+      xhr.ontimeout = () => {
+        reject(new NetworkError("Upload timed out."));
+      };
+
+      if (request.signal) {
+        request.signal.addEventListener("abort", () => {
+          xhr.abort();
+          reject(new NetworkError("Upload aborted."));
+        });
+      }
+
+      xhr.send(formData);
+    });
+  }
+
+  /**
+   * Download a file from an event
+   * Requires admin access or guest access
    */
   async downloadFile(eventId: string, request: DownloadFileRequest): Promise<Blob> {
     const params = new URLSearchParams();
@@ -289,15 +305,31 @@ export class ApiClient {
       `${apiBase}/api/events/${encodeURIComponent(eventId)}/files/${encodeURIComponent(request.filename)}${queryString}`,
       {
         headers: this.getAuthHeader(),
-      },
+      }
     );
 
     return this.handleResponse<Blob>(response, true);
   }
 
   /**
-   * Download all files as a ZIP archive
+   * Delete a file from an event
    * Requires admin access
+   */
+  async deleteFile(eventId: string, request: DeleteFileRequest): Promise<DeleteFileResponse> {
+    const response = await fetch(
+      `${apiBase}/api/events/${encodeURIComponent(eventId)}/files/${encodeURIComponent(request.filename)}`,
+      {
+        method: "DELETE",
+        headers: this.getAuthHeader(),
+      }
+    );
+
+    return this.handleResponse<DeleteFileResponse>(response);
+  }
+
+  /**
+   * Download all files as a ZIP archive
+   * Requires admin access or guest access
    */
   async downloadZip(eventId: string, folder?: string): Promise<Blob> {
     const params = new URLSearchParams();
@@ -310,9 +342,20 @@ export class ApiClient {
       `${apiBase}/api/events/${encodeURIComponent(eventId)}/files.zip${queryString}`,
       {
         headers: this.getAuthHeader(),
-      },
+      }
     );
 
     return this.handleResponse<Blob>(response, true);
+  }
+
+  /**
+   * Get global app configuration
+   */
+  async getAppConfig(): Promise<AppConfigResponse> {
+    const response = await fetch(`${apiBase}/api/config`, {
+      headers: this.getAuthHeader(),
+    });
+
+    return this.handleResponse<AppConfigResponse>(response);
   }
 }

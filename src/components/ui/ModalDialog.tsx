@@ -1,11 +1,15 @@
 import { ReactNode, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { CloseIcon } from "./icons";
 
 type ModalDialogProps = {
   open: boolean;
   title: string;
   subtitle?: string;
   children?: ReactNode;
+  headerSlot?: ReactNode;
+  footerSlot?: ReactNode;
+  showDefaultActions?: boolean;
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm?: () => void;
@@ -17,6 +21,9 @@ export function ModalDialog({
   title,
   subtitle,
   children,
+  headerSlot,
+  footerSlot,
+  showDefaultActions = true,
   confirmLabel = "Bestätigen",
   cancelLabel = "Abbrechen",
   onConfirm,
@@ -36,30 +43,50 @@ export function ModalDialog({
   if (!open) return null;
 
   return createPortal(
-    <div className="modal">
+    <div className="modal" data-testid="modal">
       <div className="modal-content">
         <div className="modal-header">
           <div>
             <div className="modal-title">{title}</div>
             {subtitle ? <div className="modal-subtitle">{subtitle}</div> : null}
           </div>
-          <button className="icon-btn" onClick={onCancel} title={cancelLabel}>
-            ×
-          </button>
+          {headerSlot ? (
+            <div className="modal-controls">{headerSlot}</div>
+          ) : (
+            <button
+              className="icon-btn"
+              onClick={onCancel}
+              title={cancelLabel}
+              data-testid="modal-close"
+            >
+              <CloseIcon></CloseIcon>
+            </button>
+          )}
         </div>
         <div className="modal-body">{children}</div>
-        <div className="modal-controls" style={{ padding: "12px 14px", justifyContent: "flex-end" }}>
-          <button type="button" className="ghost" onClick={onCancel}>
-            {cancelLabel}
-          </button>
-          {onConfirm ? (
-            <button type="button" className="danger" onClick={onConfirm}>
-              {confirmLabel}
+        {footerSlot ? <>{footerSlot}</> : null}
+        {showDefaultActions ? (
+          <div
+            className="modal-controls"
+            style={{ padding: "12px 14px", justifyContent: "flex-end" }}
+          >
+            <button type="button" className="ghost" onClick={onCancel} data-testid="modal-cancel">
+              {cancelLabel}
             </button>
-          ) : null}
-        </div>
+            {onConfirm ? (
+              <button
+                type="button"
+                className="danger"
+                onClick={onConfirm}
+                data-testid="modal-confirm"
+              >
+                {confirmLabel}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>,
-    document.body,
+    document.body
   );
 }

@@ -1,27 +1,39 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ApiClient, ApiError } from "../api/client";
-import type { ProjectInfo } from "../api/types";
-import { mainDomain } from "../constants";
+import type { EventInfo } from "../api/types";
 import { useSessionStore } from "../lib/sessionStore";
 import { redirectToHome } from "../lib/navigation";
+import { buildEventUrl } from "../lib/domain";
 import { AdminSettings } from "../components/admin/AdminSettings";
-import { DeleteProjectSection } from "../components/admin/DeleteProjectSection";
-import { FileBrowser } from "../components/shared/FileBrowser";
+import { DeleteEventSection } from "../components/admin/DeleteEventSection";
+import { FileBrowser } from "../components/files";
 import { PasswordPrompt } from "../components/shared/PasswordPrompt";
+import { LogoutIcon } from "../components/ui/icons";
+import { useTimedFeedback } from "../hooks";
 
 type AdminStatus = "loading" | "locked" | "ready" | "error";
 
 type AdminViewProps = {
   subdomain: string;
+  baseDomain: string;
+  supportSubdomain: boolean;
   onBackProject: () => void;
 };
 
-export function AdminView({ subdomain, onBackProject }: AdminViewProps) {
+export function AdminView({
+  subdomain,
+  baseDomain,
+  supportSubdomain,
+  onBackProject,
+}: AdminViewProps) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<AdminStatus>("loading");
   const [message, setMessage] = useState("");
+  const shareFeedback = useTimedFeedback();
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [settingsLoadError, setSettingsLoadError] = useState("");
-  const [projectSettings, setProjectSettings] = useState<ProjectInfo | null>(null);
+  const [projectSettings, setProjectSettings] = useState<EventInfo | null>(null);
 
   const { adminToken, setAdminToken, setGuestToken } = useSessionStore();
   const apiClient = useMemo(() => ApiClient.withAdminToken(adminToken ?? ""), [adminToken]);
@@ -33,13 +45,13 @@ export function AdminView({ subdomain, onBackProject }: AdminViewProps) {
 
         if (error.status === 401 || error.status === 403) {
           setStatus("locked");
-          setMessage(errMessage || "Admin-Passwort erforderlich.");
+          setMessage(t("AdminView.lockedDescription", { subdomain }));
           return;
         }
 
         if (error.status >= 500) {
           setStatus("error");
-          setMessage("Serverfehler. Bitte später erneut versuchen.");
+          setMessage(t("AdminView.serverError"));
           return;
         }
 
@@ -50,7 +62,7 @@ export function AdminView({ subdomain, onBackProject }: AdminViewProps) {
         setMessage(defaultMessage);
       }
     },
-    [],
+    [subdomain, t]
   );
 
   const verifyAdminAccess = useCallback(async () => {
@@ -61,25 +73,28 @@ export function AdminView({ subdomain, onBackProject }: AdminViewProps) {
       setStatus("ready");
     } catch (error) {
       if (error instanceof ApiError) {
-        const errMessage = error.message || "Dateien konnten nicht geladen werden.";
+        const errMessage = error.message || t("AdminView.filesLoadError");
         setMessage(errMessage);
         if (error.status === 401 || error.status === 403) {
+          setMessage(
+            status == "loading" ? t("AdminView.loginRequired") : t("AdminView.loginWrongPassword")
+          );
           setStatus("locked");
           return;
         }
         setStatus("error");
         return;
       }
-      const errMessage = error instanceof Error ? error.message : "Dateien konnten nicht geladen werden.";
+      const errMessage = error instanceof Error ? error.message : t("AdminView.filesLoadError");
       setMessage(errMessage);
       setStatus("error");
     }
-  }, [apiClient, subdomain]);
+  }, [apiClient, subdomain, t]);
 
   const loadProjectSettings = useCallback(async () => {
     setSettingsLoadError("");
     try {
-      const project = await apiClient.getProject(subdomain);
+      const project = await apiClient.getEvent(subdomain);
       const secured = Boolean(project.secured);
       const allowDownload = Boolean(project.allowGuestDownload && secured);
       setProjectSettings({
@@ -88,40 +103,95 @@ export function AdminView({ subdomain, onBackProject }: AdminViewProps) {
         allowGuestDownload: allowDownload,
       });
     } catch (error) {
-      handleApiError(error, "Projekt-Einstellungen konnten nicht geladen werden.");
+      handleApiError(error, t("AdminView.projectSettingsLoadError"));
       const errMessage =
-        error instanceof Error ? error.message : "Projekt-Einstellungen konnten nicht geladen werden.";
+        error instanceof Error ? error.message : t("AdminView.projectSettingsLoadError");
       setSettingsLoadError(errMessage);
     } finally {
       setSettingsLoading(false);
     }
-  }, [apiClient, handleApiError, subdomain]);
+  }, [apiClient, handleApiError, subdomain, t]);
 
-  const handleProjectSettingsUpdate = useCallback((updated: ProjectInfo) => {
+  const handleProjectSettingsUpdate = useCallback((updated: EventInfo) => {
     setProjectSettings(updated);
   }, []);
 
   const handleDeleteSuccess = useCallback(() => {
     setAdminToken(null);
     setGuestToken(null);
-    redirectToHome();
-  }, [setAdminToken]);
+    redirectToHome(baseDomain);
+  }, [baseDomain, setAdminToken, setGuestToken]);
+
+  const handleAdminLogout = useCallback(() => {
+    setAdminToken(null);
+    onBackProject();
+  }, [onBackProject, setAdminToken]);
+
+  const scrollToSection = useCallback((targetId: string, behavior: ScrollBehavior = "smooth") => {
+    const el = document.getElementById(targetId);
+    if (el) {
+      el.scrollIntoView({ behavior, block: "start" });
+      return true;
+    }
+    return false;
+  }, []);
+
+  const navigateToSection = useCallback(
+    (targetId: string) => {
+      window.history.replaceState({}, "", `#${targetId}`);
+      scrollToSection(targetId, "smooth");
+    },
+    [scrollToSection]
+  );
 
   useEffect(() => {
     verifyAdminAccess().catch(() => {
       setStatus("error");
-      setMessage("Server nicht erreichbar.");
+      setMessage(t("AdminView.serverUnavailable"));
     });
-  }, [verifyAdminAccess]);
+  }, [verifyAdminAccess, t]);
 
   useEffect(() => {
     if (status !== "ready") return;
     setSettingsLoading(true);
     loadProjectSettings().catch(() => {
-      setSettingsLoadError("Projekt-Einstellungen konnten nicht geladen werden.");
+      setSettingsLoadError(t("AdminView.projectSettingsLoadError"));
       setSettingsLoading(false);
     });
-  }, [loadProjectSettings, status]);
+  }, [loadProjectSettings, status, t]);
+
+  const shareUrl = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    return buildEventUrl({ eventId: subdomain, baseDomain, supportSubdomain });
+  }, [baseDomain, subdomain, supportSubdomain]);
+
+  const handleCopyShareUrl = useCallback(async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      shareFeedback.showSuccess(t("AdminView.shareCopied"));
+    } catch {
+      shareFeedback.showError(t("AdminView.shareCopyFailed"));
+    }
+  }, [shareFeedback, shareUrl, t]);
+
+  useEffect(() => {
+    if (status !== "ready") return;
+    const hash = window.location.hash.replace("#", "");
+    if (!hash) return;
+
+    let attempts = 0;
+    const maxAttempts = 20;
+    const tryScroll = () => {
+      if (scrollToSection(hash, "auto")) return;
+      attempts += 1;
+      if (attempts < maxAttempts) {
+        window.setTimeout(tryScroll, 100);
+      }
+    };
+
+    tryScroll();
+  }, [scrollToSection, status, projectSettings]);
 
   const submitAdminPassword = (password: string) => {
     setMessage("");
@@ -131,7 +201,7 @@ export function AdminView({ subdomain, onBackProject }: AdminViewProps) {
   if (status === "loading") {
     return (
       <main className="form-page">
-        <h1>Lädt…</h1>
+        <h1>{t("AdminView.loadingTitle")}</h1>
       </main>
     );
   }
@@ -139,12 +209,12 @@ export function AdminView({ subdomain, onBackProject }: AdminViewProps) {
   if (status === "locked") {
     return (
       <PasswordPrompt
-        title="Admin Login"
-        description={`Bitte gib das Admin-Passwort fuer ${subdomain} ein.`}
-        passwordLabel="Admin-Passwort"
+        title={t("AdminView.lockedTitle")}
+        description={t("AdminView.lockedDescription", { subdomain })}
+        passwordLabel={t("AdminView.lockedTitle")}
         onSubmit={(pwd) => submitAdminPassword(pwd)}
-        primaryLabel="Anmelden"
-        secondaryLabel="Zurueck zur Gaesteseite"
+        primaryLabel={t("AdminView.lockedPrimary")}
+        secondaryLabel={t("AdminView.lockedSecondary")}
         onSecondary={onBackProject}
         message={message}
       />
@@ -154,11 +224,11 @@ export function AdminView({ subdomain, onBackProject }: AdminViewProps) {
   if (status === "error") {
     return (
       <main className="form-page">
-        <h1>Fehler</h1>
+        <h1>{t("AdminView.errorTitle")}</h1>
         <p className="lede">{message}</p>
         <div className="actions">
           <button className="primary" onClick={onBackProject}>
-            Zurück
+            {t("AdminView.back")}
           </button>
         </div>
       </main>
@@ -166,41 +236,120 @@ export function AdminView({ subdomain, onBackProject }: AdminViewProps) {
   }
 
   return (
-    <main className="form-page">
-      <header className="form-header">
-        <p className="eyebrow">Admin</p>
-        <h1>Willkommen, Admin</h1>
-        <p className="lede">Projekt: {subdomain}.{mainDomain}</p>
-      </header>
-      <FileBrowser subdomain={subdomain} mode="admin" />
-      <div className="actions">
-        <button className="ghost" onClick={onBackProject}>
-          Zurück zur Projektseite
+    <main className="form-page" data-testid="admin-view">
+      <div className="admin-actions">
+        <button
+          type="button"
+          className="ghost logout-btn"
+          onClick={handleAdminLogout}
+          data-testid="admin-logout"
+        >
+          <LogoutIcon />
+          <span className="logout-label">{t("AdminView.logout")}</span>
         </button>
       </div>
-      {projectSettings ? (
-        <AdminSettings
-          apiClient={apiClient}
-          subdomain={subdomain}
-          project={projectSettings}
-          loading={settingsLoading}
-          onProjectUpdate={handleProjectSettingsUpdate}
-          onGuestPasswordChanged={() => setGuestToken(null)}
-        />
-      ) : (
-        <div className="form-card">
-          <h2>Projekt-Einstellungen</h2>
-          <p className={`helper${settingsLoadError ? " status bad" : ""}`}>
-            {settingsLoadError || "Projekt-Einstellungen werden geladen…"}
+      <div className="admin-header">
+        <header className="form-header">
+          <p className="eyebrow">Admin</p>
+          <h1>{t("AdminView.title")}</h1>
+          <p className="lede admin-project-lede">
+            <strong>{t("AdminView.projectLabelPrefix")}</strong> {subdomain}
           </p>
-        </div>
-      )}
-      <DeleteProjectSection
-        subdomain={subdomain}
-        apiClient={apiClient}
-        onDeleteSuccess={handleDeleteSuccess}
-        onApiError={handleApiError}
-      />
+          <div className="share-row">
+            <span className="hint">{t("AdminView.shareLabel")}</span>
+            <div className="input-with-action">
+              <input type="text" readOnly value={shareUrl} data-testid="admin-share-input" />
+              <button
+                type="button"
+                className="ghost"
+                onClick={handleCopyShareUrl}
+                data-testid="admin-share-copy"
+              >
+                {t("AdminView.shareCopy")}
+              </button>
+            </div>
+            <p className="helper">{t("AdminView.shareHint")}</p>
+            {shareFeedback.message ? (
+              <span className={`helper status ${shareFeedback.message.tone}`}>
+                {shareFeedback.message.text}
+              </span>
+            ) : null}
+          </div>
+          <div className="admin-overview">
+            <span className="hint">{t("AdminView.overviewLabel")}</span>
+            <div className="admin-overview-links">
+              <button
+                type="button"
+                className="admin-overview-link"
+                onClick={() => navigateToSection("admin-files")}
+                data-testid="admin-overview-files"
+              >
+                <span className="admin-overview-title">{t("AdminView.overviewFiles")}</span>
+                <span className="admin-overview-subtitle">{t("AdminView.overviewFilesHint")}</span>
+              </button>
+              <button
+                type="button"
+                className="admin-overview-link"
+                onClick={() => navigateToSection("admin-settings")}
+                data-testid="admin-overview-settings"
+              >
+                <span className="admin-overview-title">{t("AdminView.overviewSettings")}</span>
+                <span className="admin-overview-subtitle">
+                  {t("AdminView.overviewSettingsHint")}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="admin-overview-link"
+                onClick={() => navigateToSection("admin-removal")}
+                data-testid="admin-overview-removal"
+              >
+                <span className="admin-overview-title">{t("AdminView.overviewRemoval")}</span>
+                <span className="admin-overview-subtitle">
+                  {t("AdminView.overviewRemovalHint")}
+                </span>
+              </button>
+            </div>
+          </div>
+        </header>
+      </div>
+      <section id="admin-files" data-testid="admin-files">
+        <FileBrowser subdomain={subdomain} mode="admin" />
+      </section>
+      <section id="admin-settings" data-testid="admin-settings">
+        {projectSettings ? (
+          <AdminSettings
+            apiClient={apiClient}
+            subdomain={subdomain}
+            eventInfo={projectSettings}
+            loading={settingsLoading}
+            onProjectUpdate={handleProjectSettingsUpdate}
+            onGuestPasswordChanged={() => setGuestToken(null)}
+          />
+        ) : (
+          <div className="form-card" data-testid="admin-settings-loading">
+            <h2 data-testid="admin-settings-loading-title">
+              {t("AdminView.projectSettingsTitle")}
+            </h2>
+            <p className={`helper${settingsLoadError ? " status bad" : ""}`}>
+              {settingsLoadError || t("AdminView.projectSettingsLoading")}
+            </p>
+          </div>
+        )}
+      </section>
+      <section id="admin-removal" data-testid="admin-removal">
+        <DeleteEventSection
+          subdomain={subdomain}
+          apiClient={apiClient}
+          onDeleteSuccess={handleDeleteSuccess}
+          onApiError={handleApiError}
+        />
+      </section>
+      <div className="actions">
+        <button className="ghost" onClick={onBackProject}>
+          {t("AdminView.back")}
+        </button>
+      </div>
     </main>
   );
 }

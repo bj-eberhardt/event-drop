@@ -2,7 +2,6 @@ export interface EventConfig {
   eventId: string;
   name: string;
   description?: string;
-  domain: string;
   createdAt: string;
   allowedMimeTypes: string[];
   settings: {
@@ -13,6 +12,36 @@ export interface EventConfig {
     guestPasswordHash: string | null;
     adminPasswordHash: string;
   };
+}
+
+export const ERROR_KEYS = [
+  "ADMIN_ACCESS_REQUIRED",
+  "GUEST_ACCESS_REQUIRED",
+  "INVALID_FILENAME",
+  "INVALID_FOLDER",
+  "INVALID_INPUT",
+  "INVALID_EVENT_ID",
+  "FILE_NOT_FOUND",
+  "NO_FILES_AVAILABLE",
+  "EVENT_ID_TAKEN",
+  "EVENT_NOT_FOUND",
+  "EVENT_CONTEXT_MISSING",
+  "AUTHORIZATION_REQUIRED",
+  "GUEST_DOWNLOADS_DISABLED",
+  "EVENT_CREATION_DISABLED",
+] as const;
+
+export type ErrorKey = (typeof ERROR_KEYS)[number];
+
+export type ErrorAdditionalParams = Record<string, string | number | boolean>;
+
+export interface ErrorResponse {
+  message: string;
+  errorKey: ErrorKey;
+  additionalParams: ErrorAdditionalParams;
+  property?: string;
+  secured?: boolean;
+  eventId?: string;
 }
 
 export interface EventConfigResponse {
@@ -27,11 +56,10 @@ export interface EventConfigResponse {
   uploadMaxTotalSizeBytes: number;
 }
 
-export interface AccessResult {
-  allowed: boolean;
-  secured: boolean;
-  subdomain?: string;
-  errorMessage?: string;
+export interface AppConfigResponse {
+  allowedDomains: string[];
+  supportSubdomain: boolean;
+  allowEventCreation: boolean;
 }
 
 export interface FileEntry {
@@ -47,4 +75,9 @@ export interface ListFilesResult {
 
 export interface MoveUploadedFilesResult {
   moved: number;
+}
+
+export interface DeleteFileResult {
+  ok: boolean;
+  message: string;
 }

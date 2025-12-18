@@ -1,9 +1,13 @@
 import bcrypt from "bcryptjs";
-import { AccessResult, EventConfig } from "../types.js";
+import { EventConfig } from "../types.js";
 import { Request } from "express";
 import { logger } from "../logger.js";
 
-const parseBasicAuth = (req: Request) => {
+export type AllowedUserRole = "admin" | "guest";
+
+export type AuthCredentials = { user: string; password: string };
+
+export const parseBasicAuth = (req: Request): AuthCredentials => {
   const authHeader = req.headers.authorization || "";
   const token = authHeader.startsWith("Basic ") ? authHeader.slice(6) : "";
 
@@ -16,66 +20,64 @@ const parseBasicAuth = (req: Request) => {
     const decoded = Buffer.from(token, "base64").toString("utf8");
     const [user, password] = decoded.split(":");
     return { user: user || "", password: password || "" };
-  } catch (_error) {
-    logger.debug("Failed to decode basic auth header", { path: req.path });
+  } catch (error) {
+    logger.debug("Failed to decode basic auth header", { path: req.path, error });
     return { user: "", password: "" };
   }
 };
 
-export const requireGuestAccess = async (
+const hasAccess = async (
   req: Request,
-  project: EventConfig,
-): Promise<AccessResult> => {
-  const secured = Boolean(project.auth.guestPasswordHash);
-  if (!secured) return { allowed: true, secured: false };
-
-  const { user, password } = parseBasicAuth(req);
-  const passwordMatches =
-    user === "guest" && password
-      ? await bcrypt.compare(password, project.auth.guestPasswordHash || "")
-      : false;
+  eventId: string,
+  expectedUser: AllowedUserRole,
+  expectedHash: string,
+  credentials: AuthCredentials
+): Promise<boolean> => {
+  const { user, password } = credentials;
+  if (user !== expectedUser) {
+    return false;
+  }
+  const passwordMatches = await bcrypt.compare(password, expectedHash);
 
   if (!passwordMatches) {
-    logger.debug("Guest access denied", {
+    logger.debug(`${expectedUser} access denied. Wrong password submitted.`, {
       path: req.path,
       user,
-      hasPassword: Boolean(password),
-      subdomain: project.eventId,
+      eventId,
+      ip: req.ip,
     });
+    return false;
   }
-
-  return {
-    allowed: passwordMatches,
-    secured: true,
-    subdomain: project.eventId,
-    errorMessage: "Gaeste-Passwort erforderlich oder ungueltig.",
-  };
+  return true;
 };
 
-export const requireAdminAccess = async (
+export const hasGuestAccess = async (
   req: Request,
-  project: EventConfig,
-): Promise<AccessResult> => {
-  const { user, password } = parseBasicAuth(req);
-  const passwordMatches =
-    user === "admin" && password
-      ? await bcrypt.compare(password, project.auth.adminPasswordHash || "")
-      : false;
+  eventConfig: EventConfig,
+  credentials: AuthCredentials
+): Promise<boolean> => {
+  const secured = Boolean(eventConfig.auth.guestPasswordHash);
+  if (!secured) return true;
 
-  if (!passwordMatches) {
-    logger.debug("Admin access denied", {
-      path: req.path,
-      user,
-      hasPassword: Boolean(password),
-      subdomain: project.eventId,
-    });
-  }
-
-  return {
-    allowed: passwordMatches,
-    secured: true,
-    subdomain: project.eventId,
-    errorMessage: "Admin-Passwort erforderlich oder ungueltig.",
-  };
+  return hasAccess(
+    req,
+    eventConfig.eventId,
+    "guest",
+    eventConfig.auth.guestPasswordHash!,
+    credentials
+  );
 };
 
+export const hasAdminAccess = async (
+  req: Request,
+  eventConfig: EventConfig,
+  credentials: AuthCredentials
+): Promise<boolean> => {
+  return hasAccess(
+    req,
+    eventConfig.eventId,
+    "admin",
+    eventConfig.auth.adminPasswordHash,
+    credentials
+  );
+};

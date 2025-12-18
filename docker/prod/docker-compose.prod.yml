@@ -1,11 +1,10 @@
 services:
   web:
-    image: eventdrop-web
+    image: beberhardt/eventdrop-web:latest
     build:
       context: ../..
       dockerfile: docker/prod/Dockerfile.prod
       args:
-        VITE_MAIN_DOMAIN: // if empty auto detected - ${MAIN_DOMAIN:-localhost}
         VITE_API_BASE_URL: ${API_BASE_URL:-}
     environment:
       - UPLOAD_MAX_TOTAL_SIZE_BYTES=${UPLOAD_MAX_TOTAL_SIZE_BYTES:-0}
@@ -15,23 +14,24 @@ services:
       - api
 
   api:
-    image: eventdrop-api
+    image: beberhardt/eventdrop-api:latest
     build:
       context: ../..
       dockerfile: docker/Dockerfile
       target: prod
     environment:
       - PORT=8080
-      - DATA_ROOT_PATH=/data/parties
+      - DATA_ROOT_PATH=/data/events
       - MAIN_DOMAIN=${MAIN_DOMAIN:-localhost}
       - ENABLE_API_DOCS=${ENABLE_API_DOCS:-false}
       - UPLOAD_MAX_FILE_SIZE_BYTES=${UPLOAD_MAX_FILE_SIZE_BYTES:-0}
       - UPLOAD_MAX_TOTAL_SIZE_BYTES=${UPLOAD_MAX_TOTAL_SIZE_BYTES:-0}
     volumes:
-      - party-data:/data/parties
+      - ./data:/data/events
+      - ./config:/config
+      # - event-data:/data/events
     expose:
       - "8080"
 
 volumes:
-  party-data:
-
+  event-data:

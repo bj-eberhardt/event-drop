@@ -31,7 +31,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 COPY --from=build /app/dist ./dist
 COPY --from=server-build /app/dist/server ./dist/server
 EXPOSE 8080

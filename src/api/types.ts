@@ -2,8 +2,8 @@
  * API Request and Response Types
  */
 
-// Project-related types
-export interface ProjectInfo {
+// event related types
+export interface EventInfo {
   name: string;
   description?: string;
   eventId: string;
@@ -15,7 +15,7 @@ export interface ProjectInfo {
   createdAt?: string;
 }
 
-export interface CreateProjectRequest {
+export interface CreateEventRequest {
   name: string;
   description?: string;
   eventId: string;
@@ -23,9 +23,10 @@ export interface CreateProjectRequest {
   guestPassword: string;
   adminPassword: string;
   adminPasswordConfirm: string;
+  allowGuestDownload?: boolean;
 }
 
-export interface CreateProjectResponse {
+export interface CreateEventResponse {
   name: string;
   description?: string;
   eventId: string;
@@ -34,15 +35,15 @@ export interface CreateProjectResponse {
   allowGuestDownload: boolean;
   uploadMaxFileSizeBytes: number;
   uploadMaxTotalSizeBytes: number;
-  createdAt?: string;
+  createdAt: string;
 }
 
-export interface DeleteProjectResponse {
+export interface DeleteEventResponse {
   message: string;
   ok: boolean;
 }
 
-export interface UpdateProjectRequest {
+export interface UpdateEventRequest {
   name?: string;
   description?: string;
   allowedMimeTypes?: string[];
@@ -50,7 +51,7 @@ export interface UpdateProjectRequest {
   allowGuestDownload?: boolean;
 }
 
-export interface UpdateProjectResponse {
+export interface UpdateEventResponse {
   ok: boolean;
   name: string;
   description?: string;
@@ -96,10 +97,27 @@ export interface DownloadFileRequest {
   folder?: string;
 }
 
+export interface DeleteFileRequest {
+  filename: string;
+}
+
+export interface DeleteFileResponse {
+  ok: boolean;
+  message: string;
+}
+
+export interface AppConfigResponse {
+  allowedDomains: string[];
+  supportSubdomain: boolean;
+  allowEventCreation: boolean;
+}
+
 // Error response
 export interface ApiErrorResponse {
   message: string;
-  errorKey?: string;
+  errorKey: string;
+  additionalParams: Record<string, string | number | boolean>;
+  property?: string;
   secured?: boolean;
   eventId?: string;
 }

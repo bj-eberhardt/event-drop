@@ -4,9 +4,7 @@ RUN corepack enable
 COPY package*.json ./
 RUN npm ci
 COPY . .
-ARG VITE_MAIN_DOMAIN=localhost
 ARG VITE_API_BASE_URL=
-ENV VITE_MAIN_DOMAIN=$VITE_MAIN_DOMAIN
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 

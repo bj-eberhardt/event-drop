@@ -1,41 +1,71 @@
 import { z } from "zod";
-import { FOLDER_REGEX, SUBDOMAIN_REGEX } from "../config.js";
+import { FOLDER_REGEX, EVENT_REGEX, NOT_ALLOWED_EVENTNAMES_REGEX } from "../config.js";
+import { ErrorAdditionalParams, ErrorKey } from "../types.js";
 
 const MIME_TYPE_REGEX = /^[\w.+-]+\/[\w.+*%-]+$/i;
+
+export type ValidationAdditionalParams = ErrorAdditionalParams;
+
+export const buildValidationError = (
+  issue: z.ZodIssue | undefined,
+  fallbackErrorKey: ErrorKey = "INVALID_INPUT"
+): {
+  message: string;
+  errorKey: ErrorKey;
+  additionalParams: ValidationAdditionalParams;
+  property?: string;
+} => {
+  const additionalParams: ValidationAdditionalParams = {};
+  if (issue?.code === z.ZodIssueCode.too_big && typeof issue.maximum === "number") {
+    additionalParams.MAX_ALLOWED = issue.maximum;
+  } else if (issue?.code === z.ZodIssueCode.too_small && typeof issue.minimum === "number") {
+    additionalParams.MIN_REQUIRED = issue.minimum;
+  }
+
+  const issueErrorKey =
+    issue && typeof issue === "object" && "errorKey" in issue
+      ? (issue as { errorKey?: ErrorKey }).errorKey
+      : undefined;
+
+  return {
+    message: issue?.message || "Invalid input.",
+    errorKey: issueErrorKey || fallbackErrorKey,
+    additionalParams,
+    property: Array.isArray(issue?.path) && issue.path.length ? issue.path.join(".") : undefined,
+  };
+};
 
 export const createEventSchema = z.object({
   name: z
     .string()
     .trim()
-    .min(1, "Projektname ist erforderlich.")
-    .max(48, "Projektname darf maximal 48 Zeichen lang sein."),
+    .min(1, "Project name is required.")
+    .max(48, "Project name can be at most 48 characters."),
   description: z
     .string()
     .trim()
-    .max(2048, "Beschreibung darf maximal 2048 Zeichen lang sein.")
+    .max(2048, "Description can be at most 2048 characters.")
     .optional()
     .transform((value) => value || undefined),
   eventId: z
     .string()
     .trim()
-    .min(3, "Event-ID ist erforderlich.")
-    .max(32, "Event-ID darf maximal 32 Zeichen haben.")
-    .regex(SUBDOMAIN_REGEX, "Nur Buchstaben, Zahlen und Bindestriche sind erlaubt.")
+    .min(3, "Event ID is required.")
+    .max(32, "Event ID can be at most 32 characters.")
+    .regex(EVENT_REGEX, "Only letters, numbers, and dashes are allowed.")
+    .regex(NOT_ALLOWED_EVENTNAMES_REGEX, "This event ID is not allowed.")
     .transform((value) => value.toLowerCase()),
-  guestPassword: z.string().optional().transform((value) => value ?? ""),
-  adminPassword: z.string().min(8, "Admin-Passwort muss mindestens 8 Zeichen haben."),
-  adminPasswordConfirm: z
+  guestPassword: z
     .string()
-    .min(8, "Admin-Passwort muss mindestens 8 Zeichen haben."),
+    .optional()
+    .transform((value) => value ?? ""),
+  adminPassword: z.string().min(8, "Admin password must be at least 8 characters."),
+  adminPasswordConfirm: z.string().min(8, "Admin password must be at least 8 characters."),
   allowedMimeTypes: z
-    .array(
-      z
-        .string()
-        .trim()
-        .regex(MIME_TYPE_REGEX, "Ungültiger MIME-Type."),
-    )
+    .array(z.string().trim().regex(MIME_TYPE_REGEX, "Invalid MIME type."))
     .optional()
     .default([]),
+  allowGuestDownload: z.boolean().optional(),
 });
 
 export const updateEventSchema = z
@@ -43,13 +73,13 @@ export const updateEventSchema = z
     name: z
       .string()
       .trim()
-      .min(1, "Projektname ist erforderlich.")
-      .max(48, "Projektname darf maximal 48 Zeichen lang sein.")
+      .min(1, "Project name is required.")
+      .max(48, "Project name can be at most 48 characters.")
       .optional(),
     description: z
       .string()
       .trim()
-      .max(2048, "Beschreibung darf maximal 2048 Zeichen lang sein.")
+      .max(2048, "Description can be at most 2048 characters.")
       .optional()
       .transform((value) => (value === undefined ? undefined : value || "")),
     guestPassword: z
@@ -58,12 +88,7 @@ export const updateEventSchema = z
       .transform((value) => (value === undefined ? undefined : value.trim())),
     allowGuestDownload: z.boolean().optional(),
     allowedMimeTypes: z
-      .array(
-        z
-          .string()
-          .trim()
-          .regex(MIME_TYPE_REGEX, "Ungültiger MIME-Type."),
-      )
+      .array(z.string().trim().regex(MIME_TYPE_REGEX, "Invalid MIME type."))
       .optional(),
   })
   .superRefine((value, ctx) => {
@@ -74,10 +99,11 @@ export const updateEventSchema = z
       value.description === undefined &&
       value.allowedMimeTypes === undefined
     ) {
-      ctx.addIssue({
+      // TODO translate
+      /*ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Keine Aenderungen uebermittelt.",
-      });
+        message: "No changes provided.",
+      });*/
     }
     if (value.guestPassword && value.guestPassword.length > 0 && value.guestPassword.length < 4) {
       ctx.addIssue({
@@ -85,7 +111,8 @@ export const updateEventSchema = z
         minimum: 4,
         inclusive: true,
         type: "string",
-        message: "Gaeste-Passwort muss mindestens 4 Zeichen haben.",
+        message: "Guest password must be at least 4 characters.",
+        path: ["guestPassword"],
       });
     }
   });

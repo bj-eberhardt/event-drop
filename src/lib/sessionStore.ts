@@ -4,11 +4,13 @@ import { createJSONStorage, persist } from "zustand/middleware";
 export type SessionState = {
   guestToken?: string;
   adminToken?: string;
+  skipDeleteConfirm?: boolean;
 };
 
 type SessionStore = SessionState & {
   setGuestToken: (token?: string | null) => void;
   setAdminToken: (token?: string | null) => void;
+  setSkipDeleteConfirm: (value: boolean) => void;
   clear: () => void;
 };
 
@@ -22,6 +24,7 @@ export const useSessionStore = create<SessionStore>()(
       ...defaultState,
       setGuestToken: (token) => set({ guestToken: token || undefined }),
       setAdminToken: (token) => set({ adminToken: token || undefined }),
+      setSkipDeleteConfirm: (value) => set({ skipDeleteConfirm: value }),
       clear: () => set({ ...defaultState }),
     }),
     {
@@ -30,7 +33,8 @@ export const useSessionStore = create<SessionStore>()(
       partialize: (state) => ({
         guestToken: state.guestToken,
         adminToken: state.adminToken,
+        skipDeleteConfirm: state.skipDeleteConfirm,
       }),
-    },
-  ),
+    }
+  )
 );

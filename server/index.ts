@@ -1,17 +1,31 @@
-import express, { NextFunction, Request, Response } from "express";
+import express, { Request, Response } from "express";
 import cors from "cors";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import swaggerUi from "swagger-ui-express";
-import { CORS_ORIGIN, DIST_PATH, JSON_LIMIT, DATA_ROOT_PATH, PORT } from "./config.js";
-import { ensureBaseDir } from "./services/projects.js";
+import {
+  CORS_ORIGIN,
+  JSON_LIMIT,
+  DATA_ROOT_PATH,
+  PORT,
+  ENABLE_API_DOCS,
+  CONFIG,
+  CONFIG_FILE_PATH_LOADED,
+  IS_PROD_ENV,
+} from "./config.js";
+import { ensureBaseDir } from "./services/events.js";
 import { registerEventRoutes } from "./routes/events.js";
+import { registerAppConfigRoutes } from "./routes/app-config.js";
 import { logger } from "./logger.js";
 import { createOpenApiDocument } from "./openapi.js";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const openApiDocument = createOpenApiDocument();
 
-type OriginMatcher = { type: "exact"; value: string } | { type: "wildcard"; scheme: string; host: string; port?: string };
+type OriginMatcher =
+  | { type: "exact"; value: string }
+  | { type: "wildcard"; scheme: string; host: string; port?: string };
 
 const ORIGIN_PATTERN = /^(https?:)\/\/(\*\.)?([^/:]+)(?::(\d+))?$/i;
 
@@ -72,7 +86,7 @@ app.use(
       }
       callback(new Error("Not allowed by CORS"));
     },
-  }),
+  })
 );
 app.use(express.json({ limit: JSON_LIMIT }));
 
@@ -89,6 +103,7 @@ app.use((req, res, next) => {
       url,
       statusCode,
       durationMs: duration,
+      ip: req.ip,
     });
   });
 
@@ -96,25 +111,25 @@ app.use((req, res, next) => {
 });
 
 registerEventRoutes(app);
-if (process.env.ENABLE_API_DOCS === "true") {
+registerAppConfigRoutes(app);
+if (ENABLE_API_DOCS) {
   app.get("/openapi.json", (_req, res) => res.json(openApiDocument));
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
 }
 
-app.use(express.static(DIST_PATH));
+if (!IS_PROD_ENV) {
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(__dirname, "static", "index.html"));
+  });
+}
 
-app.get("*", (_req, res) => {
-  res.sendFile(path.join(DIST_PATH, "index.html"));
-});
-
-app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
-  // eslint-disable-next-line no-console
+app.use((error: Error, _req: Request, res: Response) => {
   console.error("API error:", error);
-  res.status(500).json({ message: "Unerwarteter Fehler." });
+  res.status(500).json({ message: "Unexpected error." });
 });
 
 await ensureBaseDir();
+logger.info("Loaded server config", { configFile: CONFIG_FILE_PATH_LOADED, config: CONFIG });
 app.listen(PORT, () => {
-  // eslint-disable-next-line no-console
-  console.log(`Server laeuft auf Port ${PORT}. DATA_ROOT_PATH=${DATA_ROOT_PATH}`);
+  console.log(`Server running on port ${PORT} with DATA_ROOT_PATH=${DATA_ROOT_PATH}`);
 });

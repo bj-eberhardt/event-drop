@@ -1,30 +1,44 @@
-export function HomeView({ onStartNew }: { onStartNew: () => void }) {
+import { useTranslation } from "react-i18next";
+import logoAvif from "../img/logo.avif";
+import logoPng from "../img/logo.png";
+
+type HomeViewProps = { onStartNew: () => void; allowEventCreation: boolean };
+
+export function HomeView({ onStartNew, allowEventCreation }: HomeViewProps) {
+  const { t } = useTranslation();
+
   return (
     <main className="home">
       <div className="banner">
-        <p className="eyebrow">Party Upload</p>
-        <h1>Gemeinsam Erinnerungen sammeln</h1>
-        <p className="lede">
-          Dieses Tool sammelt Fotos und Videos einer Party an einem sicheren Ort. Lade alle
-          Gaeste ein, ihre Bilder direkt hochzuladen - geschuetzt, ohne Chaos, jederzeit
-          verfuegbar.
+        <picture className="home-logo">
+          <source srcSet={logoAvif} type="image/avif" />
+          <img src={logoPng} alt="Event Drop" data-testid="home-logo" />
+        </picture>
+        <p className="eyebrow" data-testid="home-eyebrow">
+          {t("HomeView.eyebrow")}
         </p>
-        <button className="primary" onClick={onStartNew}>
-          Neue Party anlegen
-        </button>
+        <h1 data-testid="home-title">{t("HomeView.title")}</h1>
+        <p className="lede" data-testid="home-lede">
+          {t("HomeView.lede")}
+        </p>
+        {allowEventCreation ? (
+          <button className="primary" onClick={onStartNew} data-testid="home-cta">
+            {t("HomeView.cta")}
+          </button>
+        ) : null}
       </div>
       <section className="highlights">
-        <div className="highlight-card">
-          <h2>Sicher geteilt</h2>
-          <p>Schuetze Zugaenge mit Passwoertern fuer Gaeste und Admins.</p>
+        <div className="highlight-card" data-testid="home-highlight-1">
+          <h2 data-testid="home-highlight-1-title">{t("HomeView.highlight1Title")}</h2>
+          <p data-testid="home-highlight-1-body">{t("HomeView.highlight1Body")}</p>
         </div>
-        <div className="highlight-card">
-          <h2>Alles an einem Ort</h2>
-          <p>Eigene Subdomain waehlen und Uploads sauber trennen.</p>
+        <div className="highlight-card" data-testid="home-highlight-2">
+          <h2 data-testid="home-highlight-2-title">{t("HomeView.highlight2Title")}</h2>
+          <p data-testid="home-highlight-2-body">{t("HomeView.highlight2Body")}</p>
         </div>
-        <div className="highlight-card">
-          <h2>Stressfrei starten</h2>
-          <p>In wenigen Schritten vorbereiten und sofort loslegen.</p>
+        <div className="highlight-card" data-testid="home-highlight-3">
+          <h2 data-testid="home-highlight-3-title">{t("HomeView.highlight3Title")}</h2>
+          <p data-testid="home-highlight-3-body">{t("HomeView.highlight3Body")}</p>
         </div>
       </section>
     </main>

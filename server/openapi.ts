@@ -5,7 +5,8 @@ import {
   extendZodWithOpenApi,
 } from "@asteasolutions/zod-to-openapi";
 import { createEventSchema, updateEventSchema } from "./utils/validation.js";
-import { FOLDER_REGEX, SUBDOMAIN_REGEX } from "./config.js";
+import { eventIdSchema } from "./routes/events/validators.js";
+import { FOLDER_REGEX } from "./config.js";
 
 extendZodWithOpenApi(z);
 
@@ -34,14 +35,21 @@ const ErrorKeySchema = z.enum([
   "INVALID_FOLDER",
   "INVALID_INPUT",
   "INVALID_EVENT_ID",
+  "FILE_NOT_FOUND",
   "NO_FILES_AVAILABLE",
   "EVENT_ID_TAKEN",
   "EVENT_NOT_FOUND",
+  "EVENT_CONTEXT_MISSING",
+  "AUTHORIZATION_REQUIRED",
+  "GUEST_DOWNLOADS_DISABLED",
+  "EVENT_CREATION_DISABLED",
 ]);
 
 const ErrorResponseSchema = z.object({
   message: z.string(),
   errorKey: ErrorKeySchema,
+  additionalParams: z.record(z.union([z.string(), z.number(), z.boolean()])),
+  property: z.string().optional(),
   secured: z.boolean().optional(),
   eventId: z.string().optional(),
 });
@@ -74,22 +82,24 @@ const UploadResponseSchema = z.object({
   rejected: z.array(UploadRejectSchema).optional(),
 });
 
-const EventIdParamSchema = z.object({
-  eventId: z
-    .string()
-    .min(1)
-    .regex(SUBDOMAIN_REGEX, "Invalid event id"),
+const DeleteFileResponseSchema = z.object({
+  message: z.string(),
 });
+
+const AppConfigResponseSchema = z.object({
+  allowedDomains: z.array(z.string()),
+  supportSubdomain: z.boolean(),
+  allowEventCreation: z.boolean(),
+});
+
+const EventIdParamSchema = eventIdSchema;
 
 const FileParamSchema = EventIdParamSchema.extend({
   filename: z.string().min(1),
 });
 
 const FolderQuerySchema = z.object({
-  folder: z
-    .string()
-    .regex(FOLDER_REGEX, "Invalid folder")
-    .optional(),
+  folder: z.string().regex(FOLDER_REGEX, "Invalid folder").optional(),
 });
 
 const FileUploadSchema = z.any().openapi({ type: "string", format: "binary" });
@@ -102,6 +112,21 @@ const BinaryResponseSchema = z.string().openapi({ type: "string", format: "binar
 
 registry.registerPath({
   method: "get",
+  path: "/api/config",
+  responses: {
+    200: {
+      description: "App configuration",
+      content: { "application/json": { schema: AppConfigResponseSchema } },
+    },
+    500: {
+      description: "Server error",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
   path: "/api/events/{eventId}",
   request: { params: EventIdParamSchema },
   responses: {
@@ -109,9 +134,22 @@ registry.registerPath({
       description: "Event info",
       content: { "application/json": { schema: ProjectResponseSchema } },
     },
-    400: { description: "Invalid event id", content: { "application/json": { schema: ErrorResponseSchema } } },
-    403: { description: "Access denied", content: { "application/json": { schema: ErrorResponseSchema } } },
-    404: { description: "Not found", content: { "application/json": { schema: ErrorResponseSchema } } },
+    400: {
+      description: "Invalid event id",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    401: {
+      description: "Authorization required",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    403: {
+      description: "Access denied",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    404: {
+      description: "Not found",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
   },
 });
 
@@ -130,8 +168,14 @@ registry.registerPath({
       description: "Event created",
       content: { "application/json": { schema: ProjectResponseSchema } },
     },
-    400: { description: "Invalid input", content: { "application/json": { schema: ErrorResponseSchema } } },
-    409: { description: "Event id taken", content: { "application/json": { schema: ErrorResponseSchema } } },
+    400: {
+      description: "Invalid input",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    409: {
+      description: "Event id taken",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
   },
 });
 
@@ -151,9 +195,22 @@ registry.registerPath({
       description: "Event updated",
       content: { "application/json": { schema: UpdateProjectResponseSchema } },
     },
-    400: { description: "Invalid input", content: { "application/json": { schema: ErrorResponseSchema } } },
-    403: { description: "Access denied", content: { "application/json": { schema: ErrorResponseSchema } } },
-    404: { description: "Not found", content: { "application/json": { schema: ErrorResponseSchema } } },
+    400: {
+      description: "Invalid input",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    401: {
+      description: "Authorization required",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    403: {
+      description: "Access denied",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    404: {
+      description: "Not found",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
   },
 });
 
@@ -166,8 +223,18 @@ registry.registerPath({
       description: "Event deleted",
       content: { "application/json": { schema: DeleteProjectResponseSchema } },
     },
-    403: { description: "Access denied", content: { "application/json": { schema: ErrorResponseSchema } } },
-    404: { description: "Not found", content: { "application/json": { schema: ErrorResponseSchema } } },
+    401: {
+      description: "Authorization required",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    403: {
+      description: "Access denied",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    404: {
+      description: "Not found",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
   },
 });
 
@@ -183,9 +250,22 @@ registry.registerPath({
       description: "List files",
       content: { "application/json": { schema: ListFilesResponseSchema } },
     },
-    400: { description: "Invalid input", content: { "application/json": { schema: ErrorResponseSchema } } },
-    403: { description: "Access denied", content: { "application/json": { schema: ErrorResponseSchema } } },
-    404: { description: "Not found", content: { "application/json": { schema: ErrorResponseSchema } } },
+    400: {
+      description: "Invalid input",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    401: {
+      description: "Authorization required",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    403: {
+      description: "Access denied",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    404: {
+      description: "Not found",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
   },
 });
 
@@ -205,9 +285,22 @@ registry.registerPath({
       description: "Files uploaded",
       content: { "application/json": { schema: UploadResponseSchema } },
     },
-    400: { description: "Invalid input", content: { "application/json": { schema: ErrorResponseSchema } } },
-    403: { description: "Access denied", content: { "application/json": { schema: ErrorResponseSchema } } },
-    404: { description: "Not found", content: { "application/json": { schema: ErrorResponseSchema } } },
+    400: {
+      description: "Invalid input",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    401: {
+      description: "Authorization required",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    403: {
+      description: "Access denied",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    404: {
+      description: "Not found",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
   },
 });
 
@@ -223,9 +316,53 @@ registry.registerPath({
       description: "File download",
       content: { "application/octet-stream": { schema: BinaryResponseSchema } },
     },
-    400: { description: "Invalid input", content: { "application/json": { schema: ErrorResponseSchema } } },
-    403: { description: "Access denied", content: { "application/json": { schema: ErrorResponseSchema } } },
-    404: { description: "Not found", content: { "application/json": { schema: ErrorResponseSchema } } },
+    400: {
+      description: "Invalid input",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    401: {
+      description: "Authorization required",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    403: {
+      description: "Access denied",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    404: {
+      description: "Not found",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/api/events/{eventId}/files/{filename}",
+  request: {
+    params: FileParamSchema,
+    query: FolderQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "File deleted",
+      content: { "application/json": { schema: DeleteFileResponseSchema } },
+    },
+    400: {
+      description: "Invalid input",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    401: {
+      description: "Authorization required",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    403: {
+      description: "Access denied",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    404: {
+      description: "Not found",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
   },
 });
 
@@ -241,9 +378,22 @@ registry.registerPath({
       description: "Zip download",
       content: { "application/zip": { schema: BinaryResponseSchema } },
     },
-    400: { description: "Invalid input", content: { "application/json": { schema: ErrorResponseSchema } } },
-    403: { description: "Access denied", content: { "application/json": { schema: ErrorResponseSchema } } },
-    404: { description: "Not found", content: { "application/json": { schema: ErrorResponseSchema } } },
+    400: {
+      description: "Invalid input",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    401: {
+      description: "Authorization required",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    403: {
+      description: "Access denied",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    404: {
+      description: "Not found",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
   },
 });
 
