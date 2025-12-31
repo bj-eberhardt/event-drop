@@ -1,0 +1,128 @@
+name: PullRequest with E2E tests
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Build production images
+        run: docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml build
+
+      - name: Start prod stack (subdomain)
+        env:
+          HTTP_PORT: 4000
+          ALLOWED_DOMAINS: localhost
+          SUPPORT_SUBDOMAIN: "true"
+          ALLOW_EVENT_CREATION: "true"
+        run: |
+          docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml up -d
+          curl --retry 30 --retry-delay 2 --retry-connrefused http://localhost:4000/api/config
+
+      - name: Run Playwright (subdomain)
+        id: pw_subdomain
+        continue-on-error: true
+        env:
+          E2E_START_SERVER: "false"
+          E2E_MODE: subdomain
+          E2E_BASE_URL: http://localhost:4000
+          E2E_API_BASE_URL: http://localhost:4000
+          PLAYWRIGHT_HTML_REPORT: playwright-report-subdomain
+        run: npx playwright test
+
+      - name: Stop prod stack (subdomain)
+        if: always()
+        run: docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml down -v
+
+      - name: Upload Playwright report (subdomain)
+        if: always()
+        uses: actions/upload-artifact@v4
+        id: report_subdomain
+        with:
+          name: playwright-report-subdomain
+          path: playwright-report-subdomain
+          if-no-files-found: warn
+
+      - name: Start prod stack (path)
+        env:
+          HTTP_PORT: 4000
+          ALLOWED_DOMAINS: localhost
+          SUPPORT_SUBDOMAIN: "false"
+          ALLOW_EVENT_CREATION: "true"
+        run: |
+          docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml up -d
+          curl --retry 30 --retry-delay 2 --retry-connrefused http://localhost:4000/api/config
+
+      - name: Run Playwright (path)
+        id: pw_path
+        continue-on-error: true
+        env:
+          E2E_START_SERVER: "false"
+          E2E_MODE: path
+          E2E_BASE_URL: http://localhost:4000
+          E2E_API_BASE_URL: http://localhost:4000
+          PLAYWRIGHT_HTML_REPORT: playwright-report-path
+        run: npx playwright test
+
+      - name: Stop prod stack (path)
+        if: always()
+        run: docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml down -v
+
+      - name: Upload Playwright report (path)
+        if: always()
+        uses: actions/upload-artifact@v4
+        id: report_path
+        with:
+          name: playwright-report-path
+          path: playwright-report-path
+          if-no-files-found: warn
+
+      - name: Comment PR with reports
+        if: always() && github.event.pull_request.head.repo.fork == false
+        uses: actions/github-script@v7
+        env:
+          SUBDOMAIN_REPORT_URL: ${{ steps.report_subdomain.outputs.artifact-url }}
+          PATH_REPORT_URL: ${{ steps.report_path.outputs.artifact-url }}
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const subUrl = process.env.SUBDOMAIN_REPORT_URL || runUrl;
+            const pathUrl = process.env.PATH_REPORT_URL || runUrl;
+            const body = [
+              "Playwright reports:",
+              `- Subdomain mode: ${subUrl}`,
+              `- Path mode: ${pathUrl}`,
+              "",
+              `Run: ${runUrl}`,
+            ].join("\n");
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Fail if Playwright failed
+        if: ${{ steps.pw_subdomain.outcome == 'failure' || steps.pw_path.outcome == 'failure' }}
+        run: exit 1
