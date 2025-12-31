@@ -180,26 +180,24 @@ jobs:
               const raw = fs.readFileSync(reportPath, "utf8");
               const report = JSON.parse(raw);
               const failedTests = [];
-              let total = 0;
-              let passed = 0;
-              let failed = 0;
-              let skipped = 0;
+              const stats = report.stats || {};
+              const total = Number(stats.expected || 0) + Number(stats.unexpected || 0) + Number(stats.skipped || 0);
+              const passed = Number(stats.expected || 0);
+              const failed = Number(stats.unexpected || 0);
+              const skipped = Number(stats.skipped || 0);
 
               const walkSuites = (suites, titles = []) => {
                 for (const suite of suites || []) {
                   const nextTitles = suite.title ? [...titles, suite.title] : titles;
-                  for (const test of suite.tests || []) {
-                    total += 1;
-                    const testTitle = [...nextTitles, test.title].filter(Boolean).join(" > ");
-                    const results = test.results || [];
-                    const statuses = results.map((r) => r.status);
-                    if (statuses.includes("failed") || statuses.includes("timedOut")) {
-                      failed += 1;
-                      failedTests.push(testTitle);
-                    } else if (statuses.includes("skipped")) {
-                      skipped += 1;
-                    } else {
-                      passed += 1;
+                  for (const spec of suite.specs || []) {
+                    const specTitle = [...nextTitles, spec.title].filter(Boolean).join(" > ");
+                    for (const test of spec.tests || []) {
+                      for (const result of test.results || []) {
+                        if (result.status === "failed" || result.status === "timedOut") {
+                          failedTests.push(specTitle);
+                          break;
+                        }
+                      }
                     }
                   }
                   walkSuites(suite.suites || [], nextTitles);
