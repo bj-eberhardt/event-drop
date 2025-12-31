@@ -41,7 +41,11 @@ export default defineConfig({
   fullyParallel: true,
   workers: 5,
   expect: { timeout: 10_000 },
-  reporter: [["list"], ["html", { open: "never" }]],
+  reporter: [
+    ["list"],
+    ["html", { open: "never" }],
+    ["json", { outputFile: jsonReportFile || "playwright-report/results.json" }],
+  ],
   use: {
     baseURL,
     trace: "retain-on-failure",
@@ -56,3 +60,4 @@ export default defineConfig({
     eventId,
   },
 });
+const jsonReportFile = process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;

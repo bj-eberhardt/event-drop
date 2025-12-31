@@ -69,6 +69,7 @@ jobs:
           E2E_BASE_URL: http://localhost:4000
           E2E_API_BASE_URL: http://localhost:4000
           PLAYWRIGHT_HTML_REPORT: playwright-report-subdomain
+          PLAYWRIGHT_JSON_OUTPUT_FILE: playwright-report-subdomain/results.json
         run: npx playwright test
 
       - name: Collect docker logs (subdomain)
@@ -130,6 +131,7 @@ jobs:
           E2E_BASE_URL: http://localhost:4000
           E2E_API_BASE_URL: http://localhost:4000
           PLAYWRIGHT_HTML_REPORT: playwright-report-path
+          PLAYWRIGHT_JSON_OUTPUT_FILE: playwright-report-path/results.json
         run: npx playwright test
 
       - name: Collect docker logs (path)
@@ -165,8 +167,78 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const fs = require("fs");
+            const path = require("path");
+
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const body = `Playwright run: ${runUrl}`;
+            const root = process.env.GITHUB_WORKSPACE || process.cwd();
+
+            const summarizeReport = (reportPath) => {
+              if (!fs.existsSync(reportPath)) {
+                return { status: "missing", total: 0, passed: 0, failed: 0, skipped: 0, failedTests: [] };
+              }
+              const raw = fs.readFileSync(reportPath, "utf8");
+              const report = JSON.parse(raw);
+              const failedTests = [];
+              let total = 0;
+              let passed = 0;
+              let failed = 0;
+              let skipped = 0;
+
+              const walkSuites = (suites, titles = []) => {
+                for (const suite of suites || []) {
+                  const nextTitles = suite.title ? [...titles, suite.title] : titles;
+                  for (const test of suite.tests || []) {
+                    total += 1;
+                    const testTitle = [...nextTitles, test.title].filter(Boolean).join(" > ");
+                    const results = test.results || [];
+                    const statuses = results.map((r) => r.status);
+                    if (statuses.includes("failed") || statuses.includes("timedOut")) {
+                      failed += 1;
+                      failedTests.push(testTitle);
+                    } else if (statuses.includes("skipped")) {
+                      skipped += 1;
+                    } else {
+                      passed += 1;
+                    }
+                  }
+                  walkSuites(suite.suites || [], nextTitles);
+                }
+              };
+
+              walkSuites(report.suites || []);
+              const status = failed > 0 ? "failed" : "passed";
+              return { status, total, passed, failed, skipped, failedTests };
+            };
+
+            const subReport = summarizeReport(path.join(root, "playwright-report-subdomain", "results.json"));
+            const pathReport = summarizeReport(path.join(root, "playwright-report-path", "results.json"));
+
+            const formatLine = (label, summary) => {
+              if (summary.status === "missing") return `- ${label}: report missing`;
+              return `- ${label}: ${summary.status} (${summary.passed}/${summary.total} passed, ${summary.failed} failed, ${summary.skipped} skipped)`;
+            };
+
+            const listFailures = (label, summary) => {
+              if (!summary.failedTests.length) return "";
+              const list = summary.failedTests.slice(0, 5).map((name) => `  - ${name}`).join("\n");
+              const extra = summary.failedTests.length > 5 ? `\n  - ...and ${summary.failedTests.length - 5} more` : "";
+              return `${label} failures:\n${list}${extra}`;
+            };
+
+            const body = [
+              "Playwright summary:",
+              formatLine("Subdomain mode", subReport),
+              formatLine("Path mode", pathReport),
+              "",
+              listFailures("Subdomain mode", subReport),
+              listFailures("Path mode", pathReport),
+              "",
+              `Run: ${runUrl}`,
+            ]
+              .filter(Boolean)
+              .join("\n");
+
             github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
