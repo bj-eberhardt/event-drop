@@ -9,6 +9,7 @@ const eventId = process.env.E2E_EVENT_ID ?? "partytest";
 const apiPort = process.env.E2E_API_PORT ?? "8080";
 const frontendPort = process.env.E2E_FRONTEND_PORT ?? "5173";
 const shouldStartServers = process.env.E2E_START_SERVER !== "false";
+const jsonReportFile = process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;
 
 const webServer = shouldStartServers
   ? [
@@ -60,4 +61,3 @@ export default defineConfig({
     eventId,
   },
 });
-const jsonReportFile = process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;
