@@ -35,6 +35,16 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
+      - name: Run ESLint
+        id: lint
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Run Prettier
+        id: format
+        continue-on-error: true
+        run: npm run format
+
       - name: Build production images
         run: docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml build
 
@@ -172,6 +182,8 @@ jobs:
 
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const root = process.env.GITHUB_WORKSPACE || process.cwd();
+            const lintOutcome = "${{ steps.lint.outcome }}";
+            const formatOutcome = "${{ steps.format.outcome }}";
 
             const summarizeReport = (reportPath) => {
               if (!fs.existsSync(reportPath)) {
@@ -212,9 +224,18 @@ jobs:
             const subReport = summarizeReport(path.join(root, "playwright-report-subdomain", "results.json"));
             const pathReport = summarizeReport(path.join(root, "playwright-report-path", "results.json"));
 
-            const formatLine = (label, summary) => {
-              if (summary.status === "missing") return `- ${label}: report missing`;
-              return `- ${label}: ${summary.status} (${summary.passed}/${summary.total} passed, ${summary.failed} failed, ${summary.skipped} skipped)`;
+            const formatStatus = (summary) => {
+              if (summary.status === "missing") return "⚪️ missing";
+              return summary.failed > 0 ? "❌ failed" : "✅ passed";
+            };
+
+            const formatCounts = (summary) =>
+              `${summary.passed}/${summary.total} passed · ${summary.failed} failed · ${summary.skipped} skipped`;
+
+            const formatCheck = (label, outcome) => {
+              if (outcome === "success") return `- ✅ ${label} passed`;
+              if (outcome === "failure") return `- ❌ ${label} failed`;
+              return `- ⚪️ ${label} skipped`;
             };
 
             const listFailures = (label, summary) => {
@@ -224,13 +245,28 @@ jobs:
               return `${label} failures:\n${list}${extra}`;
             };
 
+            const table = [
+              "| Mode | Status | Results |",
+              "| --- | --- | --- |",
+              `| Subdomain | ${formatStatus(subReport)} | ${formatCounts(subReport)} |`,
+              `| Path | ${formatStatus(pathReport)} | ${formatCounts(pathReport)} |`,
+            ].join("\n");
+
+            const checks = [
+              "Code checks:",
+              formatCheck("ESLint", lintOutcome),
+              formatCheck("Prettier", formatOutcome),
+            ].join("\n");
+
             const body = [
               "Playwright summary:",
-              formatLine("Subdomain mode", subReport),
-              formatLine("Path mode", pathReport),
+              "",
+              table,
               "",
               listFailures("Subdomain mode", subReport),
               listFailures("Path mode", pathReport),
+              "",
+              checks,
               "",
               `Run: ${runUrl}`,
             ]
@@ -246,4 +282,8 @@ jobs:
 
       - name: Fail if Playwright failed
         if: ${{ steps.pw_subdomain.outcome == 'failure' || steps.pw_path.outcome == 'failure' }}
+        run: exit 1
+
+      - name: Fail if linting failed
+        if: ${{ steps.lint.outcome == 'failure' || steps.format.outcome == 'failure' }}
         run: exit 1
