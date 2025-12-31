@@ -105,7 +105,10 @@ test.describe("guest event view", () => {
     await expect(page.getByTestId("upload-form")).toBeVisible();
   });
 
-  test("upload rejects invalid folder name and accepts valid one", async ({ page, request }, testInfo) => {
+  test("upload rejects invalid folder name and accepts valid one", async ({
+    page,
+    request,
+  }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");
 
@@ -156,7 +159,10 @@ test.describe("guest event view", () => {
     });
   });
 
-  test("upload rejects disallowed mime types and clears queue item", async ({ page, request }, testInfo) => {
+  test("upload rejects disallowed mime types and clears queue item", async ({
+    page,
+    request,
+  }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");
 
@@ -193,7 +199,9 @@ test.describe("guest event view", () => {
       });
 
       const rejectedItem = page.getByTestId("upload-item").filter({ hasText: "note.txt" });
-      await expect(rejectedItem.getByTestId("upload-message")).toHaveText(/dateityp nicht erlaubt/i);
+      await expect(rejectedItem.getByTestId("upload-message")).toHaveText(
+        /dateityp nicht erlaubt/i
+      );
       await expect(rejectedItem.getByTestId("upload-status")).toHaveText(/warnung/i);
 
       await rejectedItem.getByTestId("upload-clear").click();
@@ -201,7 +209,10 @@ test.describe("guest event view", () => {
     });
   });
 
-  test("admin login button routes to admin and shows password prompt", async ({ page, request }, testInfo) => {
+  test("admin login button routes to admin and shows password prompt", async ({
+    page,
+    request,
+  }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");
 
@@ -228,7 +239,9 @@ test.describe("guest event view", () => {
     await page.goto(guestUrl);
 
     await page.getByRole("button", { name: /admin login/i }).click();
-    await expect(page).toHaveURL(new RegExp(`^${adminUrl.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}/?$`));
+    await expect(page).toHaveURL(
+      new RegExp(`^${adminUrl.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}/?$`)
+    );
     await expect(page.getByTestId("password-prompt")).toBeVisible();
   });
 
@@ -430,7 +443,10 @@ test.describe("guest event view", () => {
     });
   });
 
-  test("guest can download uploaded file and cannot delete it", async ({ page, request }, testInfo) => {
+  test("guest can download uploaded file and cannot delete it", async ({
+    page,
+    request,
+  }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");
 

@@ -61,7 +61,11 @@ const loginIfPrompted = async (page: import("@playwright/test").Page, password: 
 };
 
 test.describe("admin event view", () => {
-  test("shows sections, share link, and empty file browser", async ({ page, context, adminEvent }, testInfo) => {
+  test("shows sections, share link, and empty file browser", async ({
+    page,
+    context,
+    adminEvent,
+  }, testInfo) => {
     testInfo.skip(!adminEvent.baseURL, "baseURL required");
 
     await test.step("open admin view", async () => {
@@ -133,7 +137,11 @@ test.describe("admin event view", () => {
     });
   });
 
-  test("admin settings updates guest password and removal", async ({ page, request, adminEvent }, testInfo) => {
+  test("admin settings updates guest password and removal", async ({
+    page,
+    request,
+    adminEvent,
+  }, testInfo) => {
     testInfo.skip(!adminEvent.baseURL, "baseURL required");
 
     await test.step("open admin settings", async () => {
@@ -177,7 +185,10 @@ test.describe("admin event view", () => {
     });
   });
 
-  test("guest download checkbox requires guest password", async ({ page, adminEvent }, testInfo) => {
+  test("guest download checkbox requires guest password", async ({
+    page,
+    adminEvent,
+  }, testInfo) => {
     testInfo.skip(!adminEvent.baseURL, "baseURL required");
 
     await test.step("open admin settings", async () => {
@@ -208,15 +219,19 @@ test.describe("admin event view", () => {
       await page.getByTestId("admin-guest-password").fill("");
       await expect(downloadCheckbox).toBeDisabled();
       await expect(downloadCheckbox).not.toBeChecked();
-      
+
       await page.getByTestId("admin-settings-save").click();
       await expect(page.getByTestId("admin-settings-feedback")).toHaveText(
-          /einstellungen gespeichert/i
+        /einstellungen gespeichert/i
       );
     });
   });
 
-  test("admin settings validation and mime types", async ({ page, request, adminEvent }, testInfo) => {
+  test("admin settings validation and mime types", async ({
+    page,
+    request,
+    adminEvent,
+  }, testInfo) => {
     testInfo.skip(!adminEvent.baseURL, "baseURL required");
 
     const mode = getMode();
@@ -304,7 +319,10 @@ test.describe("admin event view", () => {
     });
   });
 
-  test("logout redirects and requires password on return", async ({ page, adminEvent }, testInfo) => {
+  test("logout redirects and requires password on return", async ({
+    page,
+    adminEvent,
+  }, testInfo) => {
     testInfo.skip(!adminEvent.baseURL, "baseURL required");
 
     const mode = getMode();
@@ -328,7 +346,9 @@ test.describe("admin event view", () => {
       await page.getByTestId("admin-logout").click();
       await expect(page).toHaveURL(new RegExp(`^${escapeRegExp(projectUrl)}/?$`));
       await expect(page.getByTestId("password-prompt")).toBeVisible();
-      await expect(page.getByRole("heading", { name: /g.ste-passwort erforderlich/i })).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: /g.ste-passwort erforderlich/i })
+      ).toBeVisible();
     });
 
     await test.step("admin URL requires password again", async () => {
@@ -337,7 +357,11 @@ test.describe("admin event view", () => {
     });
   });
 
-  test("delete flow disables button until match and removes event", async ({ page, request, adminEvent }, testInfo) => {
+  test("delete flow disables button until match and removes event", async ({
+    page,
+    request,
+    adminEvent,
+  }, testInfo) => {
     testInfo.skip(!adminEvent.baseURL, "baseURL required");
 
     const mode = getMode();
@@ -372,7 +396,10 @@ test.describe("admin event view", () => {
       await expect(page.getByTestId("modal")).toBeVisible();
 
       const homeUrlPattern = new RegExp(`^${escapeRegExp(adminEvent.baseURL as string)}/?$`);
-      await Promise.all([page.waitForURL(homeUrlPattern), page.getByTestId("modal-confirm").click()]);
+      await Promise.all([
+        page.waitForURL(homeUrlPattern),
+        page.getByTestId("modal-confirm").click(),
+      ]);
 
       await expect(page.getByTestId("home-logo")).toBeVisible();
 
