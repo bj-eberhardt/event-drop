@@ -36,7 +36,7 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Build production images
-        run: docker compose -f docker/prod/docker-compose.prod.yml build
+        run: docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml build
 
       - name: Start prod stack (subdomain)
         env:
@@ -45,8 +45,15 @@ jobs:
           SUPPORT_SUBDOMAIN: "true"
           ALLOW_EVENT_CREATION: "true"
         run: |
-          docker compose -f docker/prod/docker-compose.prod.yml up -d
-          curl --retry 30 --retry-delay 2 --retry-connrefused http://localhost:4000/api/config
+          docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml up -d
+          for i in {1..60}; do
+            if curl -fsS http://localhost:4000/api/config; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml logs
+          exit 1
 
       - name: Run Playwright (subdomain)
         id: pw_subdomain
@@ -61,7 +68,7 @@ jobs:
 
       - name: Stop prod stack (subdomain)
         if: always()
-        run: docker compose -f docker/prod/docker-compose.prod.yml down -v
+        run: docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml down -v
 
       - name: Upload Playwright report (subdomain)
         if: always()
@@ -79,8 +86,15 @@ jobs:
           SUPPORT_SUBDOMAIN: "false"
           ALLOW_EVENT_CREATION: "true"
         run: |
-          docker compose -f docker/prod/docker-compose.prod.yml up -d
-          curl --retry 30 --retry-delay 2 --retry-connrefused http://localhost:4000/api/config
+          docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml up -d
+          for i in {1..60}; do
+            if curl -fsS http://localhost:4000/api/config; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml logs
+          exit 1
 
       - name: Run Playwright (path)
         id: pw_path
@@ -95,7 +109,7 @@ jobs:
 
       - name: Stop prod stack (path)
         if: always()
-        run: docker compose -f docker/prod/docker-compose.prod.yml down -v
+        run: docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml down -v
 
       - name: Upload Playwright report (path)
         if: always()
