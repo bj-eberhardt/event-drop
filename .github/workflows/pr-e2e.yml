@@ -1,0 +1,249 @@
+name: PullRequest with E2E tests
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Build production images
+        run: docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml build
+
+      - name: Start prod stack (subdomain)
+        id: start_subdomain
+        env:
+          HTTP_PORT: 4000
+          ALLOWED_DOMAINS: localhost
+          SUPPORT_SUBDOMAIN: "true"
+          ALLOW_EVENT_CREATION: "true"
+        run: |
+          docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml up -d
+          for i in {1..60}; do
+            if curl -fsS http://localhost:4000/api/config; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml logs
+          exit 1
+
+      - name: Mark log start (subdomain)
+        id: logs_subdomain_start
+        run: echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Run Playwright (subdomain)
+        id: pw_subdomain
+        continue-on-error: true
+        env:
+          E2E_START_SERVER: "false"
+          E2E_MODE: subdomain
+          E2E_BASE_URL: http://localhost:4000
+          E2E_API_BASE_URL: http://localhost:4000
+          PLAYWRIGHT_HTML_REPORT: playwright-report-subdomain
+          PLAYWRIGHT_JSON_OUTPUT_FILE: playwright-report-subdomain/results.json
+        run: npx playwright test
+
+      - name: Collect docker logs (subdomain)
+        if: always()
+        env:
+          LOG_START: ${{ steps.logs_subdomain_start.outputs.started_at }}
+        run: |
+          docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml logs -t --since "$LOG_START" > docker-logs-subdomain.txt
+
+      - name: Stop prod stack (subdomain)
+        if: always()
+        run: docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml down -v
+
+      - name: Upload docker logs (subdomain)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-logs-subdomain
+          path: docker-logs-subdomain.txt
+          if-no-files-found: warn
+
+      - name: Upload Playwright report (subdomain)
+        if: always()
+        uses: actions/upload-artifact@v4
+        id: report_subdomain
+        with:
+          name: playwright-report-subdomain
+          path: playwright-report-subdomain
+          if-no-files-found: warn
+
+      - name: Start prod stack (path)
+        id: start_path
+        env:
+          HTTP_PORT: 4000
+          ALLOWED_DOMAINS: localhost
+          SUPPORT_SUBDOMAIN: "false"
+          ALLOW_EVENT_CREATION: "true"
+        run: |
+          docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml up -d
+          for i in {1..60}; do
+            if curl -fsS http://localhost:4000/api/config; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml logs
+          exit 1
+
+      - name: Mark log start (path)
+        id: logs_path_start
+        run: echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Run Playwright (path)
+        id: pw_path
+        continue-on-error: true
+        env:
+          E2E_START_SERVER: "false"
+          E2E_MODE: path
+          E2E_BASE_URL: http://localhost:4000
+          E2E_API_BASE_URL: http://localhost:4000
+          PLAYWRIGHT_HTML_REPORT: playwright-report-path
+          PLAYWRIGHT_JSON_OUTPUT_FILE: playwright-report-path/results.json
+        run: npx playwright test
+
+      - name: Collect docker logs (path)
+        if: always()
+        env:
+          LOG_START: ${{ steps.logs_path_start.outputs.started_at }}
+        run: |
+          docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml logs -t --since "$LOG_START" > docker-logs-path.txt
+
+      - name: Stop prod stack (path)
+        if: always()
+        run: docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml down -v
+
+      - name: Upload docker logs (path)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-logs-path
+          path: docker-logs-path.txt
+          if-no-files-found: warn
+
+      - name: Upload Playwright report (path)
+        if: always()
+        uses: actions/upload-artifact@v4
+        id: report_path
+        with:
+          name: playwright-report-path
+          path: playwright-report-path
+          if-no-files-found: warn
+
+      - name: Comment PR with reports
+        if: always() && github.event.pull_request.head.repo.fork == false && steps.start_subdomain.outcome == 'success' && steps.start_path.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const path = require("path");
+
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const root = process.env.GITHUB_WORKSPACE || process.cwd();
+
+            const summarizeReport = (reportPath) => {
+              if (!fs.existsSync(reportPath)) {
+                return { status: "missing", total: 0, passed: 0, failed: 0, skipped: 0, failedTests: [] };
+              }
+              const raw = fs.readFileSync(reportPath, "utf8");
+              const report = JSON.parse(raw);
+              const failedTests = [];
+              const stats = report.stats || {};
+              const total = Number(stats.expected || 0) + Number(stats.unexpected || 0) + Number(stats.skipped || 0);
+              const passed = Number(stats.expected || 0);
+              const failed = Number(stats.unexpected || 0);
+              const skipped = Number(stats.skipped || 0);
+
+              const walkSuites = (suites, titles = []) => {
+                for (const suite of suites || []) {
+                  const nextTitles = suite.title ? [...titles, suite.title] : titles;
+                  for (const spec of suite.specs || []) {
+                    const specTitle = [...nextTitles, spec.title].filter(Boolean).join(" > ");
+                    for (const test of spec.tests || []) {
+                      for (const result of test.results || []) {
+                        if (result.status === "failed" || result.status === "timedOut") {
+                          failedTests.push(specTitle);
+                          break;
+                        }
+                      }
+                    }
+                  }
+                  walkSuites(suite.suites || [], nextTitles);
+                }
+              };
+
+              walkSuites(report.suites || []);
+              const status = failed > 0 ? "failed" : "passed";
+              return { status, total, passed, failed, skipped, failedTests };
+            };
+
+            const subReport = summarizeReport(path.join(root, "playwright-report-subdomain", "results.json"));
+            const pathReport = summarizeReport(path.join(root, "playwright-report-path", "results.json"));
+
+            const formatLine = (label, summary) => {
+              if (summary.status === "missing") return `- ${label}: report missing`;
+              return `- ${label}: ${summary.status} (${summary.passed}/${summary.total} passed, ${summary.failed} failed, ${summary.skipped} skipped)`;
+            };
+
+            const listFailures = (label, summary) => {
+              if (!summary.failedTests.length) return "";
+              const list = summary.failedTests.slice(0, 5).map((name) => `  - ${name}`).join("\n");
+              const extra = summary.failedTests.length > 5 ? `\n  - ...and ${summary.failedTests.length - 5} more` : "";
+              return `${label} failures:\n${list}${extra}`;
+            };
+
+            const body = [
+              "Playwright summary:",
+              formatLine("Subdomain mode", subReport),
+              formatLine("Path mode", pathReport),
+              "",
+              listFailures("Subdomain mode", subReport),
+              listFailures("Path mode", pathReport),
+              "",
+              `Run: ${runUrl}`,
+            ]
+              .filter(Boolean)
+              .join("\n");
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Fail if Playwright failed
+        if: ${{ steps.pw_subdomain.outcome == 'failure' || steps.pw_path.outcome == 'failure' }}
+        run: exit 1
