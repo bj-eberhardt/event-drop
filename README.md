@@ -1,23 +1,71 @@
 ﻿# EventDrop - Frontend + Backend
 
-EventDrop is a web app for easy file uploads and sharing around events.
-Guests can upload photos for a host, and everything gets collected and shared.
+![logo.png](src/img/logo.png)
 
-## Requirements
+> EventDrop is a web app for easy file uploads and sharing around events.
+> Guests can upload photos for a host, and everything gets collected and shared.
 
-- Node.js 20.19+ or 22.12+
-- Docker (for dev/prod containers)
+## Table of contents
 
-## Environment variables
+- [Usage](#usage)
+  - [Further configuration](#further-configuration)
+- [Configuration](#configuration)
+- [Development](#development)
+  - [Requirements](#requirements)
+  - [Run locally (no Docker)](#run-locally-no-docker)
+  - [Docker - Development](#docker---development)
+  - [Docker - Production](#docker---production)
+  - [API (Backend)](#api-backend)
+  - [E2E tests (Playwright)](#e2e-tests-playwright)
+  - [Linting / Formatting](#linting--formatting)
 
-Frontend (Vite):
+## Usage
 
-- `VITE_API_BASE_URL` - API base URL in the frontend (required for dev, e.g. `http://localhost:8080`).
+Easiest is to use the complete stack via **Docker**.
 
-Backend (Express):
+Just use the following compose file:
+
+```yaml
+services:
+  web:
+    image: beberhardt/eventdrop-web:latest
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+  api:
+    image: beberhardt/eventdrop-api:latest
+    environment:
+      - PORT=8080
+      - ALLOWED_DOMAINS=localhost # change to your domain or frontend hostname
+      - SUPPORT_SUBDOMAIN=false
+      - ALLOW_EVENT_CREATION=true
+      - UPLOAD_MAX_FILE_SIZE_BYTES=0
+    volumes:
+      - ./data:/data/events
+      - ./config:/config
+    expose:
+      - "8080"
+```
+
+start the stack via:
+
+```bash
+docker compose up -d
+```
+
+Access the app at `http://localhost:8080`.
+
+### Further configuration
+
+You can use this behind your own reverse proxy, change ports, and configure limits via environment variables (see below).
+
+## Configuration
+
+You can either pass the following variables as environment variables or set them in the backend config file (`server.config.json`).
 
 - `PORT` - Backend port (default: `8080`).
-- `DATA_ROOT_PATH` - Root path for subdomain folders (default: `/data/events`).
 - `CORS_ORIGIN` - Allowed origins (comma-separated) for dev; empty = allow all.
 - `JSON_LIMIT` - Payload limit for `express.json()` (default: `5mb`).
 - `ENABLE_API_DOCS` - Enable Swagger/OpenAPI (`true`/`false`, default: `false`).
@@ -25,15 +73,12 @@ Backend (Express):
 - `UPLOAD_MAX_TOTAL_SIZE_BYTES` - Max total size per upload in bytes (0 or empty = no limit).
 - `LOG_LEVEL` - Log level (`silent`, `error`, `info`, `debug`).
 - `ALLOWED_DOMAINS` - Allowed base domains (comma-separated). Required for routing (e.g. `localhost` or `frontend`).
-- `SUPPORT_SUBDOMAIN` - Enable subdomain routing (`true`/`false`, default: `true`).
-- `ALLOW_EVENT_CREATION` - Enable new event creation (`true`/`false`, default: `true`).
-- `SERVER_CONFIG_PATH` - Optional: alternate path to the config file (default: `./server.config.json` relative to the working directory).
+- `SUPPORT_SUBDOMAIN` - Enable subdomain routing (`true`/`false`, default: `true`). If you don't have a domain with certificates on wildcard subdomains, set this to `false` to use URL path routing.
+- `ALLOW_EVENT_CREATION` - Enable new event creation for everyone (`true`/`false`, default: `true`).
 
-## Backend config file (`server.config.json`)
+**Backend config file (`server.config.json`)**
 
-- On backend start, `server.config.json` (or the path from `SERVER_CONFIG_PATH`) is read and validated with Zod.
-- If the file does not exist, it is created automatically with defaults.
-- Env vars can still override values; the resulting effective config is written to the file.
+- ENV variables override values in the config file, but are persisted on bootup.
 - Example:
 
 ```json
@@ -52,27 +97,29 @@ Backend (Express):
 }
 ```
 
-- Change values (for example `dataRootPath` or limits) and restart the server to apply them.
+## Development
 
-## Run locally (no Docker)
+### Requirements
+
+- Node.js 22.12+
+- optional Docker (for dev/prod containers)
+
+### Run locally (no Docker)
 
 ```bash
 npm install
-# Terminal 1: Frontend
+# Terminal 1: Start Frontend
 npm run dev
-# Terminal 2: Backend (TS, via tsx)
+# Terminal 2: Start Backend (TS, via tsx)
 npm run dev:api
 ```
 
-Frontend: http://localhost:5173
-Backend: http://localhost:8080
+You can access them:
 
-### Frontend / Backend notes
+- Frontend: http://localhost:5173
+- Backend: http://localhost:8080
 
-- Default: keep `VITE_API_BASE_URL` empty. API calls use same-origin and in dev `/api` is proxied by Vite to `http://localhost:8080`.
-- If the backend runs on another host/port, set `VITE_API_BASE_URL` (for example `http://localhost:8080` or a prod URL) in `.env.local`.
-
-## Docker - Development
+### Docker - Development
 
 Starts Vite + Express with hot reload and mounts a data volume for event folders.
 
@@ -80,19 +127,21 @@ Starts Vite + Express with hot reload and mounts a data volume for event folders
 docker compose --env-file docker/dev/.env -f docker/dev/docker-compose.dev.yml up --build
 ```
 
+(you can overwrite and configure ports and other settings in [docker/dev/.env](docker/dev/.env))
+
 Ports:
 
 - Frontend 5173
 - Backend 8080
 
-Data is stored in `project-data`.
-Config is stored in `project-config`.
+Storage:
+
+- Data is stored in folder `project-data`.
+- Config is stored in folder `project-config`.
 
 Remote debugging on port 9229 (Node.js Inspector) is available in the API container.
 
-(Port changes and defaults are in file [docker/dev/.env](docker/dev/.env).)
-
-## Docker - Production
+### Docker - Production
 
 Nginx serves the built frontend and proxies `/api` internally to the API container. Only one HTTP port is exposed externally.
 
@@ -100,23 +149,20 @@ Nginx serves the built frontend and proxies `/api` internally to the API contain
 docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml up --build
 ```
 
-Prod runs on port 8080 (configurable via `HTTP_PORT`). The API is proxied under `/api/*`.
-
-```bash
-MAIN_DOMAIN=party-upload.de HTTP_PORT=8080 docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml up --build
-```
+Prod runs per default on port 8080 (configurable via `HTTP_PORT`).
+The API is proxied under `/api/*`.
 
 More settings: [docker/prod/.env](docker/prod/.env).
 
-## API (Backend)
+### API (Backend)
 
 See Swagger docs at `/api/docs` (only if `ENABLE_API_DOCS=true`, default in dev).
 
-## E2E tests (Playwright)
+### E2E tests (Playwright)
 
 Playwright supports both routing modes. The backend controls this via `SUPPORT_SUBDOMAIN` and the allowed hostnames via `ALLOWED_DOMAINS`.
 
-### Local (uses dev servers)
+#### Local (uses dev servers)
 
 ```bash
 npm install
@@ -148,18 +194,7 @@ If you already run the frontend/backend, set `E2E_START_SERVER=false` and point 
 E2E_START_SERVER=false E2E_BASE_URL=http://localhost:5173 E2E_MODE=subdomain npm run test:e2e
 ```
 
-### Docker
-
-```bash
-docker compose -f docker/e2e/docker-compose.e2e.yml up --build --exit-code-from e2e
-```
-
-To run in path mode via Docker, set:
-
-- `SUPPORT_SUBDOMAIN=false` in the `api` service of `docker/e2e/docker-compose.e2e.yml`
-- `E2E_MODE=path` in the `e2e` service of `docker/e2e/docker-compose.e2e.yml`
-
-## Linting / Formatting
+### Linting / Formatting
 
 ```bash
 npm run lint
