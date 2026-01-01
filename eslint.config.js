@@ -7,8 +7,8 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import eslintConfigPrettier from "eslint-config-prettier";
 
 export default [
-  // Ignore build output
-  { ignores: ["dist/**"] },
+  // Ignore build output and E2E tests
+  { ignores: ["dist/**", "tests/e2e/**", "playwright-report/**", "test-results/**"] },
 
   js.configs.recommended,
 

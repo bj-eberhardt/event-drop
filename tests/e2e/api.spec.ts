@@ -28,7 +28,7 @@ const toAuthHeader = (auth?: Auth) => {
 const createEventPayload = (overrides?: Partial<Record<string, unknown>>) => ({
   name: "API Test Event",
   description: "",
-  eventId: `e2e-api-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  eventId: `e2e-api-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`,
   guestPassword: "guestpass123",
   adminPassword: "adminpass123",
   adminPasswordConfirm: "adminpass123",

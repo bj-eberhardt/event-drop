@@ -9,7 +9,7 @@ type AdminEventFixture = {
 };
 
 const test = base.extend<{ adminEvent: AdminEventFixture }>({
-  adminEvent: async ({ request }, use, testInfo) => {
+  adminEvent: async ({ request }, useFixture, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     const eventId = `e2e-admin-${Date.now()}`;
     const adminPassword = "adminpass123";
@@ -28,7 +28,7 @@ const test = base.extend<{ adminEvent: AdminEventFixture }>({
       baseURL
     );
 
-    await use({ eventId, adminPassword, baseURL });
+    await useFixture({ eventId, adminPassword, baseURL });
 
     await cleanupEvent(request, eventId, adminPassword, baseURL);
   },
