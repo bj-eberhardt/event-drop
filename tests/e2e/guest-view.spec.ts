@@ -12,7 +12,7 @@ type GuestEventFixture = {
 };
 
 const test = base.extend<{ guestEvent: GuestEventFixture }>({
-  guestEvent: async ({ request }, useFixture, testInfo) => {
+  guestEvent: async ({ request }, use, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     const eventId = `e2e-guest-${Date.now()}`;
     const guestPassword = "guestpass123";
@@ -32,7 +32,7 @@ const test = base.extend<{ guestEvent: GuestEventFixture }>({
       baseURL
     );
 
-    await useFixture({ eventId, guestPassword, adminPassword, baseURL });
+    await use({ eventId, guestPassword, adminPassword, baseURL });
     await cleanupEvent(request, eventId, adminPassword, baseURL);
   },
 });
