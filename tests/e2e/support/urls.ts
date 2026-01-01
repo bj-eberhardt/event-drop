@@ -5,12 +5,7 @@ export const getMode = (): E2EMode =>
 
 export const getEventId = () => process.env.E2E_EVENT_ID ?? "partytest";
 
-export const buildEventUrl = (
-  baseURL: string,
-  mode: E2EMode,
-  eventId: string,
-  admin = false
-) => {
+export const buildEventUrl = (baseURL: string, mode: E2EMode, eventId: string, admin = false) => {
   const base = new URL(baseURL);
   const port = base.port ? `:${base.port}` : "";
   if (mode === "subdomain") {

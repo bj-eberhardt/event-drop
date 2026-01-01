@@ -415,7 +415,9 @@ test.describe("PATCH /api/events/{eventId}", () => {
     expect(body.property).toBe("description");
   });
 
-  test("allows enabling guest downloads when guest password provided", async ({ request }, testInfo) => {
+  test("allows enabling guest downloads when guest password provided", async ({
+    request,
+  }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     const { payload } = await createEvent(request, baseURL, { guestPassword: "" });
 
@@ -646,7 +648,7 @@ test.describe("POST /api/events/{eventId}/files", () => {
     expect(upload.status()).toBe(400);
     const body = await upload.json();
     expect(body.errorKey).toBe("INVALID_INPUT");
-    expect(body.property).toBe("from")
+    expect(body.property).toBe("from");
   });
 
   test("rejects missing auth on secured event", async ({ request }, testInfo) => {
@@ -909,8 +911,8 @@ test.describe("DELETE /api/events/{eventId}/files/{filename}", () => {
     const apiBase = getApiBaseUrl(baseURL);
 
     const response = await request.delete(
-        `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/${encodeURIComponent("../file.txt")}`,
-        { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/${encodeURIComponent("../file.txt")}`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
     );
     expect(response.status()).toBe(400);
     const body = await response.json();
