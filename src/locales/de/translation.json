@@ -228,6 +228,10 @@
     "previewNav": "Datei {{index}} von {{count}}",
     "loadError": "Dateien konnten nicht geladen werden.",
     "previewLoadError": "Vorschau konnte nicht geladen werden.",
+    "previewLoading": "Vorschau wird geladen...",
+    "previewUnavailable": "Keine Vorschau verfügbar.",
+    "previewTypeLabel": "Dateityp: {{type}}",
+    "previewUnknownType": "Unbekannt",
     "downloadError": "Download fehlgeschlagen.",
     "zipError": "ZIP Download fehlgeschlagen."
   }

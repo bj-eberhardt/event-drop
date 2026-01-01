@@ -1,12 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FileEntry } from "../types";
 import { PreviewModal } from "../components/files";
 import { useTranslation } from "react-i18next";
 
+type PreviewStatus = "loading" | "ready" | "error";
+type PreviewKind = "image" | "other";
+
 type PreviewState = {
   name: string;
-  url: string;
+  url: string | null;
   index: number;
+  status: PreviewStatus;
+  kind: PreviewKind;
+  typeLabel: string;
 };
 
 type UseFilePreviewProps = {
@@ -37,25 +43,86 @@ export const useFilePreview = ({
 }: UseFilePreviewProps): UseFilePreviewResult => {
   const { t } = useTranslation();
   const [preview, setPreview] = useState<PreviewState | null>(null);
+  const requestIdRef = useRef(0);
 
-  const openPreview = useCallback(
-    async (name: string) => {
+  const getTypeLabel = useCallback(
+    (name: string, mimeType?: string) => {
+      if (mimeType) return mimeType;
+      const dotIndex = name.lastIndexOf(".");
+      if (dotIndex > 0 && dotIndex < name.length - 1) {
+        return name.slice(dotIndex + 1).toUpperCase();
+      }
+      return t("FileBrowser.previewUnknownType");
+    },
+    [t]
+  );
+
+  const loadPreview = useCallback(
+    async (name: string, index: number) => {
+      requestIdRef.current += 1;
+      const requestId = requestIdRef.current;
+
+      if (preview?.url) {
+        URL.revokeObjectURL(preview.url);
+      }
+
+      setPreview({
+        name,
+        index,
+        url: null,
+        status: "loading",
+        kind: "other",
+        typeLabel: t("FileBrowser.previewLoading"),
+      });
+
       try {
         const blob = await fetchFileBlob(name);
-        const url = URL.createObjectURL(blob);
-        const index = files.findIndex((file) => file.name === name);
-        if (preview?.url) {
-          URL.revokeObjectURL(preview.url);
+        if (requestIdRef.current !== requestId) return;
+        const mimeType = blob.type || "";
+        const typeLabel = getTypeLabel(name, mimeType);
+        if (mimeType.startsWith("image/")) {
+          const url = URL.createObjectURL(blob);
+          setPreview({
+            name,
+            index,
+            url,
+            status: "ready",
+            kind: "image",
+            typeLabel,
+          });
+        } else {
+          setPreview({
+            name,
+            index,
+            url: null,
+            status: "ready",
+            kind: "other",
+            typeLabel,
+          });
         }
-        setPreview({ name, url, index: index >= 0 ? index : 0 });
       } catch (error) {
+        if (requestIdRef.current !== requestId) return;
+        setPreview((current) =>
+          current && current.name === name
+            ? { ...current, status: "error", typeLabel: getTypeLabel(name) }
+            : current
+        );
         onError(error, t("FileBrowser.previewLoadError"));
       }
     },
-    [fetchFileBlob, files, onError, preview?.url, t]
+    [fetchFileBlob, getTypeLabel, onError, preview?.url, t]
+  );
+
+  const openPreview = useCallback(
+    async (name: string) => {
+      const index = files.findIndex((file) => file.name === name);
+      await loadPreview(name, index >= 0 ? index : 0);
+    },
+    [files, loadPreview]
   );
 
   const closePreview = useCallback(() => {
+    requestIdRef.current += 1;
     if (preview?.url) {
       URL.revokeObjectURL(preview.url);
     }
@@ -68,16 +135,9 @@ export const useFilePreview = ({
       const newIndex = preview.index + direction;
       if (newIndex < 0 || newIndex >= files.length) return;
       const nextFile = files[newIndex];
-      try {
-        const blob = await fetchFileBlob(nextFile.name);
-        const url = URL.createObjectURL(blob);
-        if (preview.url) URL.revokeObjectURL(preview.url);
-        setPreview({ name: nextFile.name, url, index: newIndex });
-      } catch (error) {
-        onError(error, t("FileBrowser.previewLoadError"));
-      }
+      await loadPreview(nextFile.name, newIndex);
     },
-    [fetchFileBlob, files, onError, preview, t]
+    [files, loadPreview, preview]
   );
 
   const handlePreviewAfterDelete = useCallback(
@@ -88,17 +148,7 @@ export const useFilePreview = ({
         if (nextFiles.length > 0) {
           const nextIndex = Math.min(preview.index, nextFiles.length - 1);
           const nextFile = nextFiles[nextIndex];
-          try {
-            const blob = await fetchFileBlob(nextFile.name);
-            const url = URL.createObjectURL(blob);
-            if (preview.url) {
-              URL.revokeObjectURL(preview.url);
-            }
-            setPreview({ name: nextFile.name, url, index: nextIndex });
-          } catch (error) {
-            onError(error, t("FileBrowser.previewLoadError"));
-            closePreview();
-          }
+          await loadPreview(nextFile.name, nextIndex);
         } else {
           closePreview();
         }
@@ -109,7 +159,7 @@ export const useFilePreview = ({
         }
       }
     },
-    [closePreview, fetchFileBlob, onError, preview, t]
+    [closePreview, loadPreview, preview]
   );
 
   useEffect(() => {
@@ -147,11 +197,14 @@ export const useFilePreview = ({
       <PreviewModal
         open
         previewName={preview.name}
-        previewUrl={preview.url}
+        previewUrl={preview.url ?? ""}
         index={preview.index}
         count={files.length}
         isAdmin={isAdmin}
         isLoading={isLoading}
+        previewStatus={preview.status}
+        previewKind={preview.kind}
+        previewTypeLabel={preview.typeLabel}
         onCancel={closePreview}
         onPrev={() => navigatePreview(-1)}
         onNext={() => navigatePreview(1)}
