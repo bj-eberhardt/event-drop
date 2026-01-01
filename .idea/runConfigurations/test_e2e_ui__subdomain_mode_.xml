@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="test:e2e:ui (subdomain mode)" type="js.build_tools.npm">
+    <package-json value="$PROJECT_DIR$/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="test:e2e:ui" />
+    </scripts>
+    <node-interpreter value="project" />
+    <envs>
+      <env name="E2E_ALLOWED_DOMAINS" value="localhost" />
+      <env name="E2E_MODE" value="subdomain" />
+    </envs>
+    <method v="2" />
+  </configuration>
+</component>
