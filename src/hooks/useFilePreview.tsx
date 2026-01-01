@@ -4,7 +4,7 @@ import { PreviewModal } from "../components/files";
 import { useTranslation } from "react-i18next";
 
 type PreviewStatus = "loading" | "ready" | "error";
-type PreviewKind = "image" | "other";
+type PreviewKind = "image" | "video" | "audio" | "pdf" | "other";
 
 type PreviewState = {
   name: string;
@@ -80,26 +80,22 @@ export const useFilePreview = ({
         if (requestIdRef.current !== requestId) return;
         const mimeType = blob.type || "";
         const typeLabel = getTypeLabel(name, mimeType);
-        if (mimeType.startsWith("image/")) {
-          const url = URL.createObjectURL(blob);
-          setPreview({
-            name,
-            index,
-            url,
-            status: "ready",
-            kind: "image",
-            typeLabel,
-          });
-        } else {
-          setPreview({
-            name,
-            index,
-            url: null,
-            status: "ready",
-            kind: "other",
-            typeLabel,
-          });
-        }
+        let kind: PreviewKind = "other";
+        if (mimeType.startsWith("image/")) kind = "image";
+        else if (mimeType.startsWith("video/")) kind = "video";
+        else if (mimeType.startsWith("audio/")) kind = "audio";
+        else if (mimeType === "application/pdf") kind = "pdf";
+
+        const shouldCreateUrl = kind !== "other";
+        const url = shouldCreateUrl ? URL.createObjectURL(blob) : null;
+        setPreview({
+          name,
+          index,
+          url,
+          status: "ready",
+          kind,
+          typeLabel,
+        });
       } catch (error) {
         if (requestIdRef.current !== requestId) return;
         setPreview((current) =>

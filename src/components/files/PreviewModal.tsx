@@ -7,7 +7,7 @@ type PreviewModalProps = {
   previewName: string;
   previewUrl: string;
   previewStatus: "loading" | "ready" | "error";
-  previewKind: "image" | "other";
+  previewKind: "image" | "video" | "audio" | "pdf" | "other";
   previewTypeLabel: string;
   index: number;
   count: number;
@@ -43,7 +43,15 @@ export function PreviewModal({
 
   const showLoading = previewStatus === "loading";
   const showImage = previewStatus === "ready" && previewKind === "image" && previewUrl;
-  const showUnavailable = previewStatus === "ready" && previewKind !== "image";
+  const showVideo = previewStatus === "ready" && previewKind === "video" && previewUrl;
+  const showAudio = previewStatus === "ready" && previewKind === "audio" && previewUrl;
+  const showPdf = previewStatus === "ready" && previewKind === "pdf" && previewUrl;
+  const showUnavailable =
+    previewStatus === "ready" &&
+    previewKind !== "image" &&
+    previewKind !== "video" &&
+    previewKind !== "audio" &&
+    previewKind !== "pdf";
   const showError = previewStatus === "error";
 
   return (
@@ -124,6 +132,20 @@ export function PreviewModal({
           alt={previewName}
           className="preview-image"
           data-testid="preview-image"
+        />
+      ) : null}
+      {showVideo ? (
+        <video src={previewUrl} controls className="preview-media" data-testid="preview-video" />
+      ) : null}
+      {showAudio ? (
+        <audio src={previewUrl} controls className="preview-audio" data-testid="preview-audio" />
+      ) : null}
+      {showPdf ? (
+        <iframe
+          src={previewUrl}
+          title={previewName}
+          className="preview-pdf"
+          data-testid="preview-pdf"
         />
       ) : null}
       {showUnavailable ? (
