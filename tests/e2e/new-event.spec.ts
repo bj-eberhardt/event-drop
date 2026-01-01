@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { buildEventUrl, getMode } from "./support/urls";
 import { createEvent } from "./support/api";
+import { getUniqueEventId } from "./support/ids";
 import { createCleanupTracker } from "./support/cleanup";
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -25,7 +26,7 @@ test.describe("new event view", () => {
     testInfo.skip(!baseURL, "baseURL required");
 
     const mode = getMode();
-    const eventId = `e2e-${Date.now()}`;
+    const eventId = getUniqueEventId("e2e");
 
     await page.goto("/");
     await page.getByTestId("home-cta").click();
@@ -134,7 +135,7 @@ test.describe("new event view", () => {
 
   test("new event rejects already used subdomains", async ({ page, request }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
-    const eventId = `e2e-taken-${Date.now()}`;
+    const eventId = getUniqueEventId("e2e-taken");
     const adminPassword = "adminpass123";
 
     await createEvent(
@@ -162,7 +163,7 @@ test.describe("new event view", () => {
     await page.goto("/new");
     await expect(page.getByTestId("new-event-form")).toBeVisible();
 
-    const eventId = `e2ematch${Date.now()}`;
+    const eventId = getUniqueEventId("e2e-match");
     await page.getByTestId("new-event-name").fill("Validation Event");
     await page.getByTestId("new-event-subdomain").fill(eventId);
     await expect(page.getByTestId("new-event-availability")).toContainText(/verf.gbar/i);
@@ -183,7 +184,7 @@ test.describe("new event view", () => {
     await page.goto("/new");
     await expect(page.getByTestId("new-event-form")).toBeVisible();
 
-    const eventId = `e2echeck${Date.now()}`;
+    const eventId = getUniqueEventId("e2e-check");
     await page.getByTestId("new-event-name").fill("Validation Event");
     await page.getByTestId("new-event-subdomain").fill(eventId);
     await expect(page.getByTestId("new-event-availability")).toContainText(/verf.gbar/i);

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { createCleanupTracker } from "./support/cleanup";
+import { getUniqueEventId } from "./support/ids";
 
 type Auth = { user: "admin" | "guest"; password: string };
 
@@ -28,7 +29,7 @@ const toAuthHeader = (auth?: Auth) => {
 const createEventPayload = (overrides?: Partial<Record<string, unknown>>) => ({
   name: "API Test Event",
   description: "",
-  eventId: `e2e-api-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`,
+  eventId: getUniqueEventId("e2e-api"),
   guestPassword: "guestpass123",
   adminPassword: "adminpass123",
   adminPasswordConfirm: "adminpass123",
@@ -165,7 +166,7 @@ test.describe("POST /api/events", () => {
     const configBody = await config.json();
     testInfo.skip(configBody.allowEventCreation !== false, "event creation enabled");
 
-    const payload = createEventPayload({ eventId: `e2e-disabled-${Date.now()}` });
+    const payload = createEventPayload({ eventId: getUniqueEventId("e2e-disabled") });
     const response = await request.post(`${apiBase}/api/events`, { data: payload });
     expect(response.status()).toBe(403);
     const body = await response.json();
@@ -223,7 +224,9 @@ test.describe("GET /api/events/{eventId}", () => {
 
   test("returns not found for missing event", async ({ request }, testInfo) => {
     const apiBase = getApiBaseUrl(testInfo.project.use.baseURL as string | undefined);
-    const response = await request.get(`${apiBase}/api/events/missing-${Date.now()}`);
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(getUniqueEventId("missing"))}`
+    );
     expect(response.status()).toBe(404);
     const body = await response.json();
     expect(body.errorKey).toBe("EVENT_NOT_FOUND");
@@ -446,10 +449,13 @@ test.describe("PATCH /api/events/{eventId}", () => {
 
   test("returns not found for missing event", async ({ request }, testInfo) => {
     const apiBase = getApiBaseUrl(testInfo.project.use.baseURL as string | undefined);
-    const response = await request.patch(`${apiBase}/api/events/missing-${Date.now()}`, {
-      headers: toAuthHeader({ user: "admin", password: "adminpass123" }),
-      data: { name: "x" },
-    });
+    const response = await request.patch(
+      `${apiBase}/api/events/${encodeURIComponent(getUniqueEventId("missing"))}`,
+      {
+        headers: toAuthHeader({ user: "admin", password: "adminpass123" }),
+        data: { name: "x" },
+      }
+    );
     expect(response.status()).toBe(404);
   });
 });
@@ -524,9 +530,12 @@ test.describe("DELETE /api/events/{eventId}", () => {
 
   test("returns not found for missing event", async ({ request }, testInfo) => {
     const apiBase = getApiBaseUrl(testInfo.project.use.baseURL as string | undefined);
-    const response = await request.delete(`${apiBase}/api/events/missing-${Date.now()}`, {
-      headers: toAuthHeader({ user: "admin", password: "adminpass123" }),
-    });
+    const response = await request.delete(
+      `${apiBase}/api/events/${encodeURIComponent(getUniqueEventId("missing"))}`,
+      {
+        headers: toAuthHeader({ user: "admin", password: "adminpass123" }),
+      }
+    );
     expect(response.status()).toBe(404);
   });
 });
@@ -609,7 +618,9 @@ test.describe("GET /api/events/{eventId}/files", () => {
 
   test("returns not found for missing event", async ({ request }, testInfo) => {
     const apiBase = getApiBaseUrl(testInfo.project.use.baseURL as string | undefined);
-    const response = await request.get(`${apiBase}/api/events/missing-${Date.now()}/files`);
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(getUniqueEventId("missing"))}/files`
+    );
     expect(response.status()).toBe(404);
   });
 });
@@ -708,15 +719,18 @@ test.describe("POST /api/events/{eventId}/files", () => {
 
   test("returns not found for missing event", async ({ request }, testInfo) => {
     const apiBase = getApiBaseUrl(testInfo.project.use.baseURL as string | undefined);
-    const upload = await request.post(`${apiBase}/api/events/missing-${Date.now()}/files`, {
-      multipart: {
-        files: {
-          name: "upload.txt",
-          mimeType: "text/plain",
-          buffer: Buffer.from("hello"),
+    const upload = await request.post(
+      `${apiBase}/api/events/${encodeURIComponent(getUniqueEventId("missing"))}/files`,
+      {
+        multipart: {
+          files: {
+            name: "upload.txt",
+            mimeType: "text/plain",
+            buffer: Buffer.from("hello"),
+          },
         },
-      },
-    });
+      }
+    );
     expect(upload.status()).toBe(404);
     const body = await upload.json();
     expect(body.errorKey).toBe("EVENT_NOT_FOUND");

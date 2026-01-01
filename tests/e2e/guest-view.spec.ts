@@ -1,6 +1,7 @@
 import { expect, test as base } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { cleanupEvent, createEvent, listFiles } from "./support/api";
+import { getUniqueEventId } from "./support/ids";
 import { createCleanupTracker } from "./support/cleanup";
 import { buildEventUrl, getMode } from "./support/urls";
 
@@ -14,7 +15,7 @@ type GuestEventFixture = {
 const test = base.extend<{ guestEvent: GuestEventFixture }>({
   guestEvent: async ({ request }, use, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
-    const eventId = `e2e-guest-${Date.now()}`;
+    const eventId = getUniqueEventId("e2e-guest");
     const guestPassword = "guestpass123";
     const adminPassword = "adminpass123";
 
@@ -56,7 +57,7 @@ test.describe("guest event view", () => {
     testInfo.skip(!baseURL, "baseURL required");
 
     const mode = getMode();
-    const missingId = `missing-${Date.now()}`;
+    const missingId = getUniqueEventId("missing");
     const url = buildEventUrl(baseURL, mode, missingId);
 
     await page.goto(url);
@@ -81,7 +82,7 @@ test.describe("guest event view", () => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");
 
-    const eventId = `e2e-open-${Date.now()}`;
+    const eventId = getUniqueEventId("e2e-open");
     const adminPassword = "adminpass123";
     await createEvent(
       request,
@@ -112,7 +113,7 @@ test.describe("guest event view", () => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");
 
-    const eventId = `e2e-folder-${Date.now()}`;
+    const eventId = getUniqueEventId("e2e-folder");
     const adminPassword = "adminpass123";
     await test.step("create event and open guest view", async () => {
       await createEvent(
@@ -166,7 +167,7 @@ test.describe("guest event view", () => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");
 
-    const eventId = `e2e-mime-${Date.now()}`;
+    const eventId = getUniqueEventId("e2e-mime");
     const adminPassword = "adminpass123";
     await test.step("create event and open guest view", async () => {
       await createEvent(
@@ -216,7 +217,7 @@ test.describe("guest event view", () => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");
 
-    const eventId = `e2e-admin-link-${Date.now()}`;
+    const eventId = getUniqueEventId("e2e-admin-link");
     const adminPassword = "adminpass123";
     await createEvent(
       request,
@@ -249,7 +250,7 @@ test.describe("guest event view", () => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");
 
-    const eventId = `e2e-home-link-${Date.now()}`;
+    const eventId = getUniqueEventId("e2e-home-link");
     const adminPassword = "adminpass123";
     await createEvent(
       request,
@@ -279,7 +280,7 @@ test.describe("guest event view", () => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");
 
-    const eventId = `e2e-dup-${Date.now()}`;
+    const eventId = getUniqueEventId("e2e-dup");
     const adminPassword = "adminpass123";
     await test.step("create event and open guest view", async () => {
       await createEvent(
@@ -343,7 +344,7 @@ test.describe("guest event view", () => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");
 
-    const eventId = `e2e-files-${Date.now()}`;
+    const eventId = getUniqueEventId("e2e-files");
     const adminPassword = "adminpass123";
     const guestPassword = "guestpass123";
 
@@ -450,7 +451,7 @@ test.describe("guest event view", () => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");
 
-    const eventId = `e2e-download-${Date.now()}`;
+    const eventId = getUniqueEventId("e2e-download");
     const adminPassword = "adminpass123";
     const guestPassword = "guestpass123";
     await test.step("create event and open guest view", async () => {
@@ -512,7 +513,7 @@ test.describe("guest event view", () => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");
 
-    const eventId = `e2e-preview-${Date.now()}`;
+    const eventId = getUniqueEventId("e2e-preview");
     const adminPassword = "adminpass123";
     const guestPassword = "guestpass123";
     await test.step("create event and open guest view", async () => {
