@@ -71,9 +71,11 @@ jobs:
             --allow=fs.read=/home/runner/work \
             -f docker/prod/docker-compose.prod.yml \
             --set web.platform=linux/amd64,linux/arm64 \
-            --set web.tags=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-web:latest,${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-web:${{ steps.get-version.outputs.version }} \
+            --set web.tags=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-web:latest \
+            --set web.tags+=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-web:${{ steps.get-version.outputs.version }} \
             --set api.platform=linux/amd64,linux/arm64 \
-            --set api.tags=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-api:latest,${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-api:${{ steps.get-version.outputs.version }} \
+            --set api.tags=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-api:latest \
+            --set api.tags+=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-api:${{ steps.get-version.outputs.version }} \
             --push
 
       - name: Push version and tag
