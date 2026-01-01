@@ -66,10 +66,11 @@ jobs:
 
       - name: Tag and push Docker image
         if: success()
+        working-directory: docker/prod
         run: |
           docker buildx bake \
             --allow=fs.read=/home/runner/work \
-            -f docker/prod/docker-compose.prod.yml \
+            -f docker-compose.prod.yml \
             --set web.platform=linux/amd64,linux/arm64 \
             --set web.tags=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-web:latest \
             --set web.tags+=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-web:${{ steps.get-version.outputs.version }} \
