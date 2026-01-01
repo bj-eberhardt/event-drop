@@ -28,7 +28,7 @@ jobs:
           echo "$COMMIT_MSG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: 🔧 Set up Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 22
@@ -80,6 +80,7 @@ jobs:
             --push
 
       - name: Push version and tag
+        if: success()
         run: |
           git push origin HEAD
           git push origin --tags    
