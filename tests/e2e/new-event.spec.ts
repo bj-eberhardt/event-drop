@@ -43,6 +43,11 @@ test.describe("new event view", () => {
     await expect(page).toHaveURL(new RegExp(`^${escapeRegExp(expectedUrl)}/?$`));
 
     const passwordPrompt = page.getByTestId("password-prompt");
+    const adminView = page.getByTestId("admin-view");
+    await Promise.race([
+      passwordPrompt.waitFor({ state: "visible" }).catch(() => {}),
+      adminView.waitFor({ state: "visible" }).catch(() => {}),
+    ]);
     if (await passwordPrompt.isVisible()) {
       await page.getByTestId("password-input").fill("adminpass123");
       await page.getByTestId("password-submit").click();
