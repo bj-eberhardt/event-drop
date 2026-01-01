@@ -83,7 +83,7 @@ jobs:
         if: success()
         run: |
           git push origin HEAD
-          git push origin --tags    
+          git push origin --tags
 
       - name: Create GitHub Release
         if: success()
@@ -92,6 +92,6 @@ jobs:
           files: dist.zip
           tag_name: ${{ steps.get-version.outputs.version }}
           body: ${{ steps.message.outputs.message }}
-          name: 'Release ${{ steps.get-version.outputs.version }}'
+          name: "Release ${{ steps.get-version.outputs.version }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

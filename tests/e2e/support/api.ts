@@ -50,9 +50,7 @@ export const createEvent = async (
   baseURL?: string
 ) => {
   const apiBase = getApiBaseUrl(baseURL);
-  const response = await withRetry(() =>
-    request.post(`${apiBase}/api/events`, { data: payload })
-  );
+  const response = await withRetry(() => request.post(`${apiBase}/api/events`, { data: payload }));
   if (!response.ok()) {
     const body = await response.text();
     throw new Error(`Failed to create event: ${response.status()} ${body}`);

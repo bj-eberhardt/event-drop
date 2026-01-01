@@ -11,9 +11,7 @@ test.afterEach(async ({ request }) => {
 });
 
 test.describe("new event view", () => {
-
-
-  test("new event cancel returns to home", async ({page}) => {
+  test("new event cancel returns to home", async ({ page }) => {
     await page.goto("/new");
     await expect(page.getByTestId("new-event-form")).toBeVisible();
 
@@ -22,8 +20,7 @@ test.describe("new event view", () => {
     await expect(page.getByTestId("home-logo")).toBeVisible();
   });
 
-
-  test("create event and land on upload page", async ({page}, testInfo) => {
+  test("create event and land on upload page", async ({ page }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL;
     testInfo.skip(!baseURL, "baseURL required");
 
@@ -46,6 +43,11 @@ test.describe("new event view", () => {
     await expect(page).toHaveURL(new RegExp(`^${escapeRegExp(expectedUrl)}/?$`));
 
     const passwordPrompt = page.getByTestId("password-prompt");
+    const adminView = page.getByTestId("admin-view");
+    await Promise.race([
+      passwordPrompt.waitFor({ state: "visible" }).catch(() => {}),
+      adminView.waitFor({ state: "visible" }).catch(() => {}),
+    ]);
     if (await passwordPrompt.isVisible()) {
       await page.getByTestId("password-input").fill("adminpass123");
       await page.getByTestId("password-submit").click();
@@ -54,11 +56,10 @@ test.describe("new event view", () => {
     await expect(page.getByTestId("admin-view")).toBeVisible();
     await expect(page.getByTestId("filebrowser-admin")).toBeVisible();
     await expect(
-        page.locator('[data-testid="admin-settings-form"], [data-testid="admin-settings-loading"]')
+      page.locator('[data-testid="admin-settings-form"], [data-testid="admin-settings-loading"]')
     ).toBeVisible();
     await expect(page.getByTestId("admin-delete-section")).toBeVisible();
   });
-
 
   test("new event rejects reserved subdomain names", async ({ page }) => {
     await page.goto("/new");
@@ -79,9 +80,7 @@ test.describe("new event view", () => {
     await expect(page.getByTestId("new-event-form")).toBeVisible();
 
     await page.getByTestId("new-event-subdomain").fill("bad?.name");
-    await expect(page.getByTestId("new-event-availability")).toContainText(
-        /nur kleinbuchstaben/i
-    );
+    await expect(page.getByTestId("new-event-availability")).toContainText(/nur kleinbuchstaben/i);
   });
 
   test("new event requires a name", async ({ page }) => {
@@ -120,9 +119,7 @@ test.describe("new event view", () => {
     await page.getByTestId("new-event-subdomain").fill("aa");
     await expect(page.getByTestId("new-event-availability")).toContainText(/mindestens 3/i);
     await page.getByTestId("new-event-submit").click();
-    await expect(page.getByTestId("new-event-submit-error")).toContainText(
-        /subdomain|pfad/i
-    );
+    await expect(page.getByTestId("new-event-submit-error")).toContainText(/subdomain|pfad/i);
   });
 
   test("new event rejects subdomains with leading or trailing dashes", async ({ page }) => {
@@ -131,7 +128,7 @@ test.describe("new event view", () => {
 
     await page.getByTestId("new-event-subdomain").fill("-bad");
     await expect(page.getByTestId("new-event-availability")).toContainText(
-        /erlaubte subdomain|erlaubter pfad/i
+      /erlaubte subdomain|erlaubter pfad/i
     );
   });
 
@@ -176,7 +173,7 @@ test.describe("new event view", () => {
 
     const adminConfirm = page.getByTestId("new-event-admin-password-confirm");
     const isValid = await adminConfirm.evaluate((input) =>
-        input instanceof HTMLInputElement ? input.checkValidity() : false
+      input instanceof HTMLInputElement ? input.checkValidity() : false
     );
     expect(isValid).toBe(false);
     await expect(page).toHaveURL(/\/new\/?$/);
@@ -197,10 +194,9 @@ test.describe("new event view", () => {
 
     const adminPassword = page.getByTestId("new-event-admin-password");
     const isValid = await adminPassword.evaluate((input) =>
-        input instanceof HTMLInputElement ? input.checkValidity() : false
+      input instanceof HTMLInputElement ? input.checkValidity() : false
     );
     expect(isValid).toBe(false);
     await expect(page).toHaveURL(/\/new\/?$/);
   });
-
 });

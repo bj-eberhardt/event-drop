@@ -9,6 +9,7 @@ const eventId = process.env.E2E_EVENT_ID ?? "partytest";
 const apiPort = process.env.E2E_API_PORT ?? "8080";
 const frontendPort = process.env.E2E_FRONTEND_PORT ?? "5173";
 const shouldStartServers = process.env.E2E_START_SERVER !== "false";
+const jsonReportFile = process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;
 
 const webServer = shouldStartServers
   ? [
@@ -41,10 +42,16 @@ export default defineConfig({
   fullyParallel: true,
   workers: 5,
   expect: { timeout: 10_000 },
-  reporter: [["list"], ["html", { open: "never" }]],
+  reporter: [
+    ["list"],
+    ["html", { open: "never" }],
+    ["json", { outputFile: jsonReportFile || "playwright-report/results.json" }],
+  ],
   use: {
     baseURL,
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+    video: "retain-on-failure",
     testIdAttribute: "data-testid",
   },
   webServer,
