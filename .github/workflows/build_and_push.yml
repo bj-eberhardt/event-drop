@@ -68,6 +68,7 @@ jobs:
         if: success()
         run: |
           docker buildx bake \
+            --allow=fs.read=/home/runner/work \
             -f docker/prod/docker-compose.prod.yml \
             --set web.platform=linux/amd64,linux/arm64 \
             --set web.tags=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-web:latest,${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-web:${{ steps.get-version.outputs.version }} \
