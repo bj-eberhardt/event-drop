@@ -738,6 +738,36 @@ test.describe("POST /api/events/{eventId}/files", () => {
 });
 
 test.describe("GET /api/events/{eventId}/files/{filename}", () => {
+  test("downloads file from folder via query and path", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
+    const apiBase = getApiBaseUrl(baseURL);
+    const folder = "album-1";
+
+    await uploadFile(
+      request,
+      apiBase,
+      payload.eventId as string,
+      { user: "guest", password: payload.guestPassword as string },
+      { name: "folder.txt", mimeType: "text/plain", content: "folder content" },
+      folder
+    );
+
+    const queryResponse = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/${encodeURIComponent("folder.txt")}?folder=${encodeURIComponent(folder)}`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(queryResponse.status()).toBe(200);
+    expect(await queryResponse.text()).toBe("folder content");
+
+    const pathResponse = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/${encodeURIComponent(folder)}/${encodeURIComponent("folder.txt")}`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(pathResponse.status()).toBe(200);
+    expect(await pathResponse.text()).toBe("folder content");
+  });
+
   test("downloads file with admin auth", async ({ request }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
@@ -757,6 +787,7 @@ test.describe("GET /api/events/{eventId}/files/{filename}", () => {
     );
     expect(response.status()).toBe(200);
     expect(await response.text()).toBe("file content");
+    expect(response.headers()["cache-control"]).toContain("max-age=86400");
   });
 
   test("downloads file with guest auth when downloads enabled", async ({ request }, testInfo) => {

@@ -295,17 +295,10 @@ export class ApiClient {
    * Requires admin access or guest access
    */
   async downloadFile(eventId: string, request: DownloadFileRequest): Promise<Blob> {
-    const params = new URLSearchParams();
-    if (request.folder) {
-      params.set("folder", request.folder);
-    }
-    const queryString = params.toString() ? `?${params.toString()}` : "";
-
+    const folderPath = request.folder ? `/${encodeURIComponent(request.folder)}` : "";
     const response = await fetch(
-      `${apiBase}/api/events/${encodeURIComponent(eventId)}/files/${encodeURIComponent(request.filename)}${queryString}`,
-      {
-        headers: this.getAuthHeader(),
-      }
+      `${apiBase}/api/events/${encodeURIComponent(eventId)}/files${folderPath}/${encodeURIComponent(request.filename)}`,
+      { headers: this.getAuthHeader() }
     );
 
     return this.handleResponse<Blob>(response, true);

@@ -8,6 +8,7 @@ import { parseFolder, isSafeFilename } from "../../utils/validation.js";
 import { ensureGuestDownloadsEnabled, loadEvent, verifyAccess } from "./middleware.js";
 import { upload, cleanupUploadedFilesFromRequest, cleanupUploadedFiles } from "./upload.js";
 import {
+  eventFileInFolderParamsSchema,
   eventFileParamsSchema,
   eventIdSchema,
   uploadFilesBodySchema,
@@ -231,6 +232,77 @@ export const registerFileRoutes = (router: express.Router) => {
           }
           throw error;
         }
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        return res.sendFile(filePath);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  router.get(
+    "/:eventId/files/:folder/:filename",
+    validateRequest({ params: eventFileInFolderParamsSchema }, { errorKey: "INVALID_EVENT_ID" }),
+    loadEvent,
+    verifyAccess(["admin", "guest"]),
+    ensureGuestDownloadsEnabled,
+    async (
+      req: ValidatedReq<{ params: typeof eventFileInFolderParamsSchema }>,
+      res: Response<ErrorResponse | void>,
+      next: NextFunction
+    ) => {
+      try {
+        const folder = parseFolder(req.params.folder || "");
+        if (!folder) {
+          return res.status(400).json({
+            message: "Invalid folder name.",
+            errorKey: "INVALID_FOLDER",
+            property: "folder",
+            additionalParams: {},
+          });
+        }
+
+        const filename = req.params.filename || "";
+        if (!isSafeFilename(filename)) {
+          return res.status(400).json({
+            message: "Invalid file name.",
+            errorKey: "INVALID_FILENAME",
+            property: "filename",
+            additionalParams: {},
+          });
+        }
+
+        const filePath = path.resolve(
+          DATA_ROOT_PATH,
+          req.params.eventId,
+          FILES_DIR_NAME,
+          folder,
+          filename
+        );
+        try {
+          const stats = await fs.promises.stat(filePath);
+          if (!stats.isFile()) {
+            return res.status(404).json({
+              message: "File not found.",
+              errorKey: "FILE_NOT_FOUND",
+              property: "filename",
+              additionalParams: {},
+            });
+          }
+        } catch (error) {
+          const err = error as NodeJS.ErrnoException;
+          if (err?.code === "ENOENT") {
+            return res.status(404).json({
+              message: "File not found.",
+              errorKey: "FILE_NOT_FOUND",
+              property: "filename",
+              additionalParams: {},
+            });
+          }
+          throw error;
+        }
+
+        res.setHeader("Cache-Control", "public, max-age=86400");
         return res.sendFile(filePath);
       } catch (error) {
         next(error);
