@@ -98,6 +98,11 @@ const FileParamSchema = EventIdParamSchema.extend({
   filename: z.string().min(1),
 });
 
+const FolderedFileParamSchema = EventIdParamSchema.extend({
+  folder: z.string().regex(FOLDER_REGEX, "Invalid folder"),
+  filename: z.string().min(1),
+});
+
 const FolderQuerySchema = z.object({
   folder: z.string().regex(FOLDER_REGEX, "Invalid folder").optional(),
 });
@@ -310,6 +315,36 @@ registry.registerPath({
   request: {
     params: FileParamSchema,
     query: FolderQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "File download",
+      content: { "application/octet-stream": { schema: BinaryResponseSchema } },
+    },
+    400: {
+      description: "Invalid input",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    401: {
+      description: "Authorization required",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    403: {
+      description: "Access denied",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    404: {
+      description: "Not found",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/events/{eventId}/files/{folder}/{filename}",
+  request: {
+    params: FolderedFileParamSchema,
   },
   responses: {
     200: {
