@@ -4,6 +4,7 @@ import { z, ZodTypeAny } from "zod";
 import { FOLDER_REGEX } from "../../config.js";
 import { buildValidationError, createEventSchema } from "../../utils/validation.js";
 import { ErrorKey, ErrorResponse } from "../../types.js";
+import { MAX_PREVIEW_SIZE } from "../../constants.js";
 
 type SchemaMap = { body?: ZodTypeAny; params?: ZodTypeAny; query?: ZodTypeAny };
 
@@ -64,9 +65,17 @@ export const eventFileParamsSchema = eventIdSchema.extend({
   filename: z.string(),
 });
 export const eventFileInFolderParamsSchema = eventFileParamsSchema.extend({
-  folder: z.string().trim(),
+  folder: z.string().trim().regex(FOLDER_REGEX, { message: "Invalid folder name." }),
 });
 export const uploadFilesBodySchema = z.object({
   from: z.string().trim().regex(FOLDER_REGEX, { message: "Invalid folder name." }).optional(),
 });
 export type UploadFilesBody = z.infer<typeof uploadFilesBodySchema>;
+
+export const previewQuerySchema = z.object({
+  w: z.coerce.number().int().positive().max(MAX_PREVIEW_SIZE).optional(),
+  h: z.coerce.number().int().positive().optional(),
+  q: z.coerce.number().int().min(1).max(100).optional(),
+  fit: z.enum(["inside", "cover"]).optional(),
+  format: z.enum(["jpeg", "webp", "png"]).optional(),
+});

@@ -8,16 +8,17 @@ const cleanup = createCleanupTracker();
 
 const getApiBaseUrl = (baseURL?: string) => {
   const env = process.env.E2E_API_BASE_URL;
+  const port = process.env.E2E_API_PORT || "8080";
   if (env && env.trim().length > 0) return env.trim().replace(/\/$/, "");
   if (baseURL) {
     const url = new URL(baseURL);
-    url.port = "8080";
+    url.port = port;
     url.pathname = "";
     url.search = "";
     url.hash = "";
     return url.toString().replace(/\/$/, "");
   }
-  return "http://localhost:8080";
+  return `http://localhost:${port}`;
 };
 
 const toAuthHeader = (auth?: Auth) => {
@@ -745,7 +746,9 @@ test.describe("POST /api/events/{eventId}/files", () => {
 });
 
 test.describe("GET /api/events/{eventId}/files/{filename}", () => {
-  test("downloads file from folder via query and path", async ({ request }, testInfo) => {
+  test("downloads file from folder via query (GET /api/events/{eventId}/files/{filename}?folder=...)", async ({
+    request,
+  }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
     const apiBase = getApiBaseUrl(baseURL);
@@ -766,6 +769,26 @@ test.describe("GET /api/events/{eventId}/files/{filename}", () => {
     );
     expect(queryResponse.status()).toBe(200);
     expect(await queryResponse.text()).toBe("folder content");
+  });
+});
+
+test.describe("GET /api/events/{eventId}/files/{folder}/{filename}", () => {
+  test("downloads file from folder via path (GET /api/events/{eventId}/files/{folder}/{filename})", async ({
+    request,
+  }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
+    const apiBase = getApiBaseUrl(baseURL);
+    const folder = "album-1";
+
+    await uploadFile(
+      request,
+      apiBase,
+      payload.eventId as string,
+      { user: "guest", password: payload.guestPassword as string },
+      { name: "folder.txt", mimeType: "text/plain", content: "folder content" },
+      folder
+    );
 
     const pathResponse = await request.get(
       `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/${encodeURIComponent(folder)}/${encodeURIComponent("folder.txt")}`,
@@ -775,6 +798,107 @@ test.describe("GET /api/events/{eventId}/files/{filename}", () => {
     expect(await pathResponse.text()).toBe("folder content");
   });
 
+  test("downloads file with guest auth when downloads enabled", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
+    const apiBase = getApiBaseUrl(baseURL);
+    const folder = "album-1";
+
+    await uploadFile(
+      request,
+      apiBase,
+      payload.eventId as string,
+      { user: "guest", password: payload.guestPassword as string },
+      { name: "guest.txt", mimeType: "text/plain", content: "guest data" },
+      folder
+    );
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/${encodeURIComponent(folder)}/${encodeURIComponent("guest.txt")}`,
+      { headers: toAuthHeader({ user: "guest", password: payload.guestPassword as string }) }
+    );
+    expect(response.status()).toBe(200);
+  });
+
+  test("rejects missing auth on secured event", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/album-1/missing.txt`
+    );
+    expect(response.status()).toBe(401);
+    const body = await response.json();
+    expect(body.errorKey).toBe("AUTHORIZATION_REQUIRED");
+  });
+
+  test("rejects guest download when disabled", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: false });
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/album-1/missing.txt`,
+      { headers: toAuthHeader({ user: "guest", password: payload.guestPassword as string }) }
+    );
+    expect(response.status()).toBe(403);
+    const body = await response.json();
+    expect(body.errorKey).toBe("GUEST_DOWNLOADS_DISABLED");
+  });
+
+  test("rejects invalid event id", async ({ request }, testInfo) => {
+    const apiBase = getApiBaseUrl(testInfo.project.use.baseURL as string | undefined);
+    const response = await request.get(`${apiBase}/api/events/bad_/files/album-1/file.txt`);
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_EVENT_ID");
+  });
+
+  test("rejects invalid filename", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/album-1/bad%5Cname`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_FILENAME");
+  });
+
+  test("rejects invalid folder path", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/bad!/file.txt`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_FOLDER");
+  });
+
+  test("returns not found for missing file", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/album-1/missing.txt`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(404);
+    const body = await response.json();
+    expect(body.errorKey).toBe("FILE_NOT_FOUND");
+  });
+});
+
+test.describe("GET /api/events/{eventId}/files/{filename}", () => {
   test("downloads file with admin auth", async ({ request }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
@@ -915,7 +1039,7 @@ test.describe("GET /api/events/{eventId}/files/{filename}/preview", () => {
     );
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toContain("image/jpeg");
-    expect(response.headers()["cache-control"]).toContain("no-store");
+    expect(response.headers()["cache-control"]).toContain("public, max-age=31536000, immutable");
     expect((await response.body()).length).toBeGreaterThan(0);
   });
 
@@ -1053,7 +1177,7 @@ test.describe("GET /api/events/{eventId}/files/{folder}/{filename}/preview", () 
     );
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toContain("image/jpeg");
-    expect(response.headers()["cache-control"]).toContain("no-store");
+    expect(response.headers()["cache-control"]).toContain("public, max-age=31536000, immutable");
   });
 
   test("rejects invalid folder path", async ({ request }, testInfo) => {
@@ -1068,6 +1192,7 @@ test.describe("GET /api/events/{eventId}/files/{folder}/{filename}/preview", () 
     expect(response.status()).toBe(400);
     const body = await response.json();
     expect(body.errorKey).toBe("INVALID_FOLDER");
+    expect(body.property).toBe("folder");
   });
 });
 
@@ -1164,6 +1289,123 @@ test.describe("DELETE /api/events/{eventId}/files/{filename}", () => {
 
     const response = await request.delete(
       `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/missing.txt`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(404);
+    const body = await response.json();
+    expect(body.errorKey).toBe("FILE_NOT_FOUND");
+  });
+});
+
+test.describe("DELETE /api/events/{eventId}/files/{folder}/{filename}", () => {
+  test("deletes file with admin auth", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+    const folder = "album-1";
+
+    await uploadFile(
+      request,
+      apiBase,
+      payload.eventId as string,
+      { user: "guest", password: payload.guestPassword as string },
+      { name: "delete.txt", mimeType: "text/plain", content: "delete me" },
+      folder
+    );
+
+    const response = await request.delete(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/${encodeURIComponent(folder)}/delete.txt`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(200);
+  });
+
+  test("rejects missing auth", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.delete(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/album-1/missing.txt`
+    );
+    expect(response.status()).toBe(401);
+    const body = await response.json();
+    expect(body.errorKey).toBe("AUTHORIZATION_REQUIRED");
+  });
+
+  test("rejects guest auth", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.delete(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/album-1/missing.txt`,
+      { headers: toAuthHeader({ user: "guest", password: payload.guestPassword as string }) }
+    );
+    expect(response.status()).toBe(403);
+    const body = await response.json();
+    expect(body.errorKey).toBe("AUTHORIZATION_REQUIRED");
+  });
+
+  test("rejects invalid filename", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.delete(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/album-1/%5Cabc`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(404);
+    const body = await response.json();
+    expect(body.errorKey).toBe("FILE_NOT_FOUND");
+  });
+
+  test("rejects invalid filename to parent", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.delete(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/album-1/${encodeURIComponent("../file.txt")}`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_FILENAME");
+  });
+
+  test("rejects invalid event id", async ({ request }, testInfo) => {
+    const apiBase = getApiBaseUrl(testInfo.project.use.baseURL as string | undefined);
+    const response = await request.delete(`${apiBase}/api/events/bad_/files/album-1/file.txt`, {
+      headers: toAuthHeader({ user: "admin", password: "adminpass123" }),
+    });
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_EVENT_ID");
+  });
+
+  test("rejects invalid folder path", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.delete(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/bad!/file.txt`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_FOLDER");
+  });
+
+  test("returns not found for missing file", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.delete(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/album-1/missing.txt`,
       { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
     );
     expect(response.status()).toBe(404);

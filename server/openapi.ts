@@ -7,6 +7,7 @@ import {
 import { createEventSchema, updateEventSchema } from "./utils/validation.js";
 import { eventIdSchema } from "./routes/events/validators.js";
 import { FOLDER_REGEX } from "./config.js";
+import { MAX_PREVIEW_SIZE } from "./constants.js";
 
 extendZodWithOpenApi(z);
 
@@ -109,7 +110,7 @@ const FolderQuerySchema = z.object({
 });
 
 const PreviewQuerySchema = z.object({
-  w: z.coerce.number().int().positive().optional(),
+  w: z.coerce.number().int().positive().max(MAX_PREVIEW_SIZE).optional(),
   h: z.coerce.number().int().positive().optional(),
   q: z.coerce.number().int().min(1).max(100).optional(),
   fit: z.enum(["inside", "cover"]).optional(),
@@ -463,6 +464,36 @@ registry.registerPath({
   request: {
     params: FileParamSchema,
     query: FolderQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "File deleted",
+      content: { "application/json": { schema: DeleteFileResponseSchema } },
+    },
+    400: {
+      description: "Invalid input",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    401: {
+      description: "Authorization required",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    403: {
+      description: "Access denied",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    404: {
+      description: "Not found",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/api/events/{eventId}/files/{folder}/{filename}",
+  request: {
+    params: FolderedFileParamSchema,
   },
   responses: {
     200: {
