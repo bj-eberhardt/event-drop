@@ -58,7 +58,7 @@ export const registerPreviewRoutes = (router: express.Router) => {
         lowerName.endsWith(".webp");
 
       if (!isImage) {
-        return res.status(415).json({
+        return res.status(415).type("application/json").json({
           message: "Preview not available for this file type.",
           errorKey: "UNSUPPORTED_FILE_TYPE",
           property: "filename",
@@ -115,7 +115,7 @@ export const registerPreviewRoutes = (router: express.Router) => {
         return res.status(200).send(buffer);
       } catch (err) {
         logger.error("Error generating preview for file", { filePath }, err);
-        return res.status(400).json({
+        return res.status(400).type("application/json").json({
           message: "Preview not available for this file.",
           errorKey: "INVALID_INPUT",
           property: "filename",

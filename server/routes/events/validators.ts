@@ -58,7 +58,7 @@ export const validateRequest = <S extends SchemaMap>(
             ? errorKeyOption({ part, issue, defaultKey })
             : defaultKey;
         const formattedIssue = buildValidationError(issue, errorKey);
-        return res.status(400).json(formattedIssue);
+        return res.status(400).type("application/json").json(formattedIssue);
       }
       if (part === "body") {
         req.body = parsed.data as InferSchema<S>["body"];

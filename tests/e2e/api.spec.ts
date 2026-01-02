@@ -1025,13 +1025,26 @@ test.describe("GET /api/events/{eventId}/files/{filename}/preview", () => {
     const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
     const apiBase = getApiBaseUrl(baseURL);
 
-    await uploadFile(
+    const upload = await uploadFile(
       request,
       apiBase,
       payload.eventId as string,
       { user: "guest", password: payload.guestPassword as string },
       { name: "preview.png", mimeType: "image/png", content: tinyPng }
     );
+    expect(upload.status()).toBe(200);
+    const uploadBody = await upload.json();
+    expect(uploadBody.uploaded).toBe(1);
+
+    await expect.poll(async () => {
+      const download = await request.get(
+        `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/preview.png`,
+        { headers: toAuthHeader({ user: "guest", password: payload.guestPassword as string }) }
+      );
+      if (!download.ok()) return 0;
+      const buffer = await download.body();
+      return buffer.length;
+    }).toBeGreaterThan(0);
 
     const response = await request.get(
       `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/preview.png/preview?w=320&format=jpeg`,
