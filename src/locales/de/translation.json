@@ -233,6 +233,7 @@
     "previewTypeLabel": "Dateityp: {{type}}",
     "previewUnknownType": "Unbekannt",
     "downloadError": "Download fehlgeschlagen.",
-    "zipError": "ZIP Download fehlgeschlagen."
+    "zipError": "ZIP Download fehlgeschlagen.",
+    "zipDownloading": "ZIP Download läuft..."
   }
 }

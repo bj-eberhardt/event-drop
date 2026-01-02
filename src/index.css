@@ -697,6 +697,15 @@ textarea:focus {
   flex-wrap: wrap;
 }
 
+.zip-download-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #4f73ff;
+  animation: preview-spin 1s linear infinite;
+}
+
 .icon-btn {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.2);
