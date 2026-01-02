@@ -42,18 +42,19 @@ const createEvent = async (
   request: import("@playwright/test").APIRequestContext,
   baseURL?: string,
   overrides?: Partial<Record<string, unknown>>
-) => {
-  const apiBase = getApiBaseUrl(baseURL);
-  const payload = createEventPayload(overrides);
-  const response = await request.post(`${apiBase}/api/events`, { data: payload });
-  expect(response.status()).toBe(200);
-  cleanup.track({
-    eventId: payload.eventId as string,
-    adminPassword: payload.adminPassword as string,
-    baseURL,
+) =>
+  test.step("create event", async () => {
+    const apiBase = getApiBaseUrl(baseURL);
+    const payload = createEventPayload(overrides);
+    const response = await request.post(`${apiBase}/api/events`, { data: payload });
+    expect(response.status()).toBe(200);
+    cleanup.track({
+      eventId: payload.eventId as string,
+      adminPassword: payload.adminPassword as string,
+      baseURL,
+    });
+    return { response, payload };
   });
-  return { response, payload };
-};
 
 const uploadFile = async (
   request: import("@playwright/test").APIRequestContext,
@@ -62,25 +63,26 @@ const uploadFile = async (
   auth: Auth,
   file: { name: string; mimeType: string; content: string | Buffer },
   from?: string
-) => {
-  const buffer = Buffer.isBuffer(file.content) ? file.content : Buffer.from(file.content);
-  const multipart: {
-    [key: string]: string | number | boolean | { name: string; mimeType: string; buffer: Buffer };
-  } = {
-    files: {
-      name: file.name,
-      mimeType: file.mimeType,
-      buffer,
-    },
-  };
-  if (from !== undefined) {
-    multipart.from = from;
-  }
-  return request.post(`${baseURL}/api/events/${encodeURIComponent(eventId)}/files`, {
-    headers: toAuthHeader(auth),
-    multipart,
+) =>
+  test.step(`upload file ${file.name}`, async () => {
+    const buffer = Buffer.isBuffer(file.content) ? file.content : Buffer.from(file.content);
+    const multipart: {
+      [key: string]: string | number | boolean | { name: string; mimeType: string; buffer: Buffer };
+    } = {
+      files: {
+        name: file.name,
+        mimeType: file.mimeType,
+        buffer,
+      },
+    };
+    if (from !== undefined) {
+      multipart.from = from;
+    }
+    return request.post(`${baseURL}/api/events/${encodeURIComponent(eventId)}/files`, {
+      headers: toAuthHeader(auth),
+      multipart,
+    });
   });
-};
 
 const tinyPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAA" +
@@ -1025,26 +1027,33 @@ test.describe("GET /api/events/{eventId}/files/{filename}/preview", () => {
     const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
     const apiBase = getApiBaseUrl(baseURL);
 
-    const upload = await uploadFile(
-      request,
-      apiBase,
-      payload.eventId as string,
-      { user: "guest", password: payload.guestPassword as string },
-      { name: "preview.png", mimeType: "image/png", content: tinyPng }
-    );
-    expect(upload.status()).toBe(200);
-    const uploadBody = await upload.json();
-    expect(uploadBody.uploaded).toBe(1);
-
-    await expect.poll(async () => {
-      const download = await request.get(
-        `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/preview.png`,
-        { headers: toAuthHeader({ user: "guest", password: payload.guestPassword as string }) }
+    await test.step("upload preview image", async () => {
+      const upload = await uploadFile(
+        request,
+        apiBase,
+        payload.eventId as string,
+        { user: "guest", password: payload.guestPassword as string },
+        { name: "preview.png", mimeType: "image/png", content: tinyPng }
       );
-      if (!download.ok()) return 0;
-      const buffer = await download.body();
-      return buffer.length;
-    }).toBeGreaterThan(0);
+      expect(upload.status()).toBe(200);
+      const uploadBody = await upload.json();
+      expect(uploadBody.uploaded).toBe(1);
+    });
+
+    await test.step("wait for uploaded file to be readable", async () => {
+      await expect.poll(
+        async () => {
+          const download = await request.get(
+            `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/preview.png`,
+            { headers: toAuthHeader({ user: "guest", password: payload.guestPassword as string }) }
+          );
+          if (!download.ok()) return 0;
+          const buffer = await download.body();
+          return buffer.length;
+        },
+        { timeout: process.env.CI ? 20000 : 10000, intervals: [250, 500, 1000] }
+      ).toBeGreaterThan(50);
+    });
 
     const response = await request.get(
       `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/preview.png/preview?w=320&format=jpeg`,
