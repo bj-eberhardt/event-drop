@@ -4,7 +4,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { DATA_ROOT_PATH } from "../../config.js";
 import { FILES_DIR_NAME } from "../../constants.js";
-import { parseFolder, isSafeFilename } from "../../utils/validation.js";
+import { isSafeFilename } from "../../utils/validation.js";
 import { ensureGuestDownloadsEnabled, loadEvent, verifyAccess } from "./middleware.js";
 import {
   eventFileInFolderParamsSchema,
@@ -27,16 +27,6 @@ export const registerPreviewRoutes = (router: express.Router) => {
     folderValue: string
   ) => {
     try {
-      const folder = parseFolder(folderValue);
-      if (folder === null) {
-        return res.status(400).json({
-          message: "Invalid folder name.",
-          errorKey: "INVALID_FOLDER",
-          property: "folder",
-          additionalParams: {},
-        });
-      }
-
       const filename = req.params.filename || "";
       if (!isSafeFilename(filename)) {
         return res.status(400).json({
@@ -51,7 +41,7 @@ export const registerPreviewRoutes = (router: express.Router) => {
         DATA_ROOT_PATH,
         req.params.eventId,
         FILES_DIR_NAME,
-        folder || "",
+        folderValue || "",
         filename
       );
 
@@ -139,7 +129,18 @@ export const registerPreviewRoutes = (router: express.Router) => {
 
   router.get(
     "/:eventId/files/:filename/preview",
-    validateRequest({ params: eventFileParamsSchema }, { errorKey: "INVALID_EVENT_ID" }),
+    validateRequest(
+      { params: eventFileParamsSchema },
+      {
+        errorKey: ({ part, issue, defaultKey }) => {
+          if (part !== "params") return defaultKey;
+          const field = issue.path[0];
+          if (field === "eventId") return "INVALID_EVENT_ID";
+          if (field === "filename") return "INVALID_FILENAME";
+          return defaultKey;
+        },
+      }
+    ),
     loadEvent,
     validateRequest({ query: previewQuerySchema }, { errorKey: "INVALID_INPUT" }),
     verifyAccess(["admin", "guest"]),

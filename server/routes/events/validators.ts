@@ -46,13 +46,16 @@ export const validateRequest = <S extends SchemaMap>(
       const parsed = schema.safeParse(currentValue ?? {});
       if (!parsed.success) {
         const issue = parsed.error.issues[0];
+        const errorKeyOption = opts?.errorKey;
         const defaultKey =
-          typeof opts?.errorKey === "string"
-            ? opts.errorKey
-            : opts?.errorKey?.[part] || "INVALID_INPUT";
+          typeof errorKeyOption === "string"
+            ? errorKeyOption
+            : typeof errorKeyOption === "function"
+              ? "INVALID_INPUT"
+              : errorKeyOption?.[part] || "INVALID_INPUT";
         const errorKey =
-          typeof opts?.errorKey === "function"
-            ? opts.errorKey({ part, issue, defaultKey })
+          typeof errorKeyOption === "function"
+            ? errorKeyOption({ part, issue, defaultKey })
             : defaultKey;
         const formattedIssue = buildValidationError(issue, errorKey);
         return res.status(400).json(formattedIssue);
@@ -69,9 +72,23 @@ export const validateRequest = <S extends SchemaMap>(
   };
 };
 
+const isUnsafeFilename = (value: string) => {
+  const lower = value.toLowerCase();
+  return (
+    value.includes("/") ||
+    value.includes("\\") ||
+    value.includes("..") ||
+    lower.includes("%2f") ||
+    lower.includes("%5c") ||
+    lower.includes("%2e%2e")
+  );
+};
+
 export const eventIdSchema = z.object({ eventId: createEventSchema.shape.eventId });
 export const eventFileParamsSchema = eventIdSchema.extend({
-  filename: z.string(),
+  filename: z.string().refine((value) => !isUnsafeFilename(value), {
+    message: "Invalid file name.",
+  }),
 });
 export const eventFileInFolderParamsSchema = eventFileParamsSchema.extend({
   folder: z.string().trim().regex(FOLDER_REGEX, { message: "Invalid folder name." }),

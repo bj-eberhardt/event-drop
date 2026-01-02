@@ -1279,9 +1279,10 @@ test.describe("DELETE /api/events/{eventId}/files/{filename}", () => {
       `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/%5Cabc`,
       { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
     );
-    expect(response.status()).toBe(404);
+    expect(response.status()).toBe(400);
     const body = await response.json();
-    expect(body.errorKey).toBe("FILE_NOT_FOUND");
+    expect(body.errorKey).toBe("INVALID_FILENAME");
+    expect(body.property).toBe("filename");
   });
 
   test("rejects invalid filename to parent", async ({ request }, testInfo) => {
@@ -1382,9 +1383,10 @@ test.describe("DELETE /api/events/{eventId}/files/{folder}/{filename}", () => {
       `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/album-1/%5Cabc`,
       { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
     );
-    expect(response.status()).toBe(404);
+    expect(response.status()).toBe(400);
     const body = await response.json();
-    expect(body.errorKey).toBe("FILE_NOT_FOUND");
+    expect(body.errorKey).toBe("INVALID_FILENAME");
+    expect(body.property).toBe("filename");
   });
 
   test("rejects invalid filename to parent", async ({ request }, testInfo) => {
