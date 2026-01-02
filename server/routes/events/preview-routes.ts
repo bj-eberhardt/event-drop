@@ -29,7 +29,6 @@ export const registerPreviewRoutes = (router: express.Router) => {
     try {
       const folder = parseFolder(folderValue);
       if (folder === null) {
-        console.log("XXX Invalid folder name: " + folderValue);
         return res.status(400).json({
           message: "Invalid folder name.",
           errorKey: "INVALID_FOLDER",
@@ -40,7 +39,6 @@ export const registerPreviewRoutes = (router: express.Router) => {
 
       const filename = req.params.filename || "";
       if (!isSafeFilename(filename)) {
-        console.log("XXX Invalid folder name: " + folderValue);
         return res.status(400).json({
           message: "Invalid file name.",
           errorKey: "INVALID_FILENAME",
