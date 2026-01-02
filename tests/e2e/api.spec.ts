@@ -1041,18 +1041,22 @@ test.describe("GET /api/events/{eventId}/files/{filename}/preview", () => {
     });
 
     await test.step("wait for uploaded file to be readable", async () => {
-      await expect.poll(
-        async () => {
-          const download = await request.get(
-            `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/preview.png`,
-            { headers: toAuthHeader({ user: "guest", password: payload.guestPassword as string }) }
-          );
-          if (!download.ok()) return 0;
-          const buffer = await download.body();
-          return buffer.length;
-        },
-        { timeout: process.env.CI ? 20000 : 10000, intervals: [250, 500, 1000] }
-      ).toBeGreaterThan(50);
+      await expect
+        .poll(
+          async () => {
+            const download = await request.get(
+              `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/preview.png`,
+              {
+                headers: toAuthHeader({ user: "guest", password: payload.guestPassword as string }),
+              }
+            );
+            if (!download.ok()) return 0;
+            const buffer = await download.body();
+            return buffer.length;
+          },
+          { timeout: process.env.CI ? 20000 : 10000, intervals: [250, 500, 1000] }
+        )
+        .toBeGreaterThan(50);
     });
 
     const response = await request.get(
