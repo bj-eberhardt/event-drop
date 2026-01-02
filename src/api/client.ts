@@ -5,6 +5,7 @@ import type {
   CreateEventResponse,
   DeleteEventResponse,
   DownloadFileRequest,
+  PreviewFileRequest,
   DeleteFileRequest,
   DeleteFileResponse,
   ListFilesRequest,
@@ -299,6 +300,40 @@ export class ApiClient {
     const response = await fetch(
       `${apiBase}/api/events/${encodeURIComponent(eventId)}/files${folderPath}/${encodeURIComponent(request.filename)}`,
       { headers: this.getAuthHeader() }
+    );
+
+    return this.handleResponse<Blob>(response, true);
+  }
+
+  /**
+   * Download a preview image from an event
+   * Requires admin access or guest access
+   */
+  async downloadPreview(eventId: string, request: PreviewFileRequest): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (request.width) {
+      params.set("w", String(request.width));
+    }
+    if (request.height) {
+      params.set("h", String(request.height));
+    }
+    if (request.quality) {
+      params.set("q", String(request.quality));
+    }
+    if (request.fit) {
+      params.set("fit", request.fit);
+    }
+    if (request.format) {
+      params.set("format", request.format);
+    }
+    const queryString = params.toString() ? `?${params.toString()}` : "";
+    const folderSegment = request.folder ? `/${encodeURIComponent(request.folder)}` : "";
+
+    const response = await fetch(
+      `${apiBase}/api/events/${encodeURIComponent(eventId)}/files${folderSegment}/${encodeURIComponent(request.filename)}/preview${queryString}`,
+      {
+        headers: this.getAuthHeader(),
+      }
     );
 
     return this.handleResponse<Blob>(response, true);

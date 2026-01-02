@@ -18,6 +18,10 @@ type PreviewState = {
 type UseFilePreviewProps = {
   files: FileEntry[];
   fetchFileBlob: (name: string) => Promise<Blob>;
+  fetchPreviewBlob: (
+    name: string,
+    options: { width?: number; height?: number; quality?: number; format?: "jpeg" | "webp" | "png" }
+  ) => Promise<Blob>;
   onError: (error: unknown, defaultMessage: string) => void;
   onDownload: (name: string) => void;
   onRequestDelete: (name: string) => void;
@@ -35,6 +39,7 @@ type UseFilePreviewResult = {
 export const useFilePreview = ({
   files,
   fetchFileBlob,
+  fetchPreviewBlob,
   onError,
   onDownload,
   onRequestDelete,
@@ -44,6 +49,24 @@ export const useFilePreview = ({
   const { t } = useTranslation();
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const requestIdRef = useRef(0);
+  const imageExtensions = useMemo(() => new Set(["jpg", "jpeg", "png", "webp"]), []);
+
+  const MAX_PREVIEW_SIZE = 1500;
+  const getPreviewSize = useCallback(() => {
+    if (typeof window === "undefined") return { width: undefined, height: undefined };
+    const width = Math.min(MAX_PREVIEW_SIZE, Math.max(320, Math.floor(window.innerWidth * 0.9)));
+    const height = Math.min(MAX_PREVIEW_SIZE, Math.max(240, Math.floor(window.innerHeight * 0.8)));
+    return { width, height };
+  }, []);
+
+  const shouldUsePreview = useCallback(
+    (name: string) => {
+      const dot = name.lastIndexOf(".");
+      if (dot <= 0 || dot >= name.length - 1) return false;
+      return imageExtensions.has(name.slice(dot + 1).toLowerCase());
+    },
+    [imageExtensions]
+  );
 
   const getTypeLabel = useCallback(
     (name: string, mimeType?: string) => {
@@ -76,7 +99,10 @@ export const useFilePreview = ({
       });
 
       try {
-        const blob = await fetchFileBlob(name);
+        const { width, height } = getPreviewSize();
+        const blob = shouldUsePreview(name)
+          ? await fetchPreviewBlob(name, { width, height, quality: 80, format: "jpeg" })
+          : await fetchFileBlob(name);
         if (requestIdRef.current !== requestId) return;
         const mimeType = blob.type || "";
         const typeLabel = getTypeLabel(name, mimeType);
@@ -106,7 +132,16 @@ export const useFilePreview = ({
         onError(error, t("FileBrowser.previewLoadError"));
       }
     },
-    [fetchFileBlob, getTypeLabel, onError, preview?.url, t]
+    [
+      fetchFileBlob,
+      fetchPreviewBlob,
+      getPreviewSize,
+      getTypeLabel,
+      onError,
+      preview?.url,
+      shouldUsePreview,
+      t,
+    ]
   );
 
   const openPreview = useCallback(

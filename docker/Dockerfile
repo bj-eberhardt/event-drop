@@ -30,6 +30,7 @@ FROM node:22.12-alpine AS prod
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
+RUN apk add --no-cache vips
 COPY package*.json ./
 RUN npm ci --omit=dev --ignore-scripts
 COPY --from=build /app/dist ./dist

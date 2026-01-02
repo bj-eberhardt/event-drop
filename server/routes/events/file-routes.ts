@@ -173,13 +173,24 @@ export const registerFileRoutes = (router: express.Router) => {
 
   router.get(
     "/:eventId/files/:filename",
-    validateRequest({ params: eventFileParamsSchema }, { errorKey: "INVALID_EVENT_ID" }),
+    validateRequest(
+      { params: eventFileParamsSchema },
+      {
+        errorKey: ({ part, issue, defaultKey }) => {
+          if (part !== "params") return defaultKey;
+          const field = issue.path[0];
+          if (field === "eventId") return "INVALID_EVENT_ID";
+          if (field === "filename") return "INVALID_FILENAME";
+          return defaultKey;
+        },
+      }
+    ),
     loadEvent,
     verifyAccess(["admin", "guest"]),
     ensureGuestDownloadsEnabled,
     async (
       req: ValidatedReq<{ params: typeof eventFileParamsSchema }>,
-      res: Response<ErrorResponse | void>,
+      res: Response<ErrorResponse | Buffer>,
       next: NextFunction
     ) => {
       try {
@@ -242,7 +253,19 @@ export const registerFileRoutes = (router: express.Router) => {
 
   router.get(
     "/:eventId/files/:folder/:filename",
-    validateRequest({ params: eventFileInFolderParamsSchema }, { errorKey: "INVALID_EVENT_ID" }),
+    validateRequest(
+      { params: eventFileInFolderParamsSchema },
+      {
+        errorKey: ({ part, issue, defaultKey }) => {
+          if (part !== "params") return defaultKey;
+          const field = issue.path[0];
+          if (field === "eventId") return "INVALID_EVENT_ID";
+          if (field === "folder") return "INVALID_FOLDER";
+          if (field === "filename") return "INVALID_FILENAME";
+          return defaultKey;
+        },
+      }
+    ),
     loadEvent,
     verifyAccess(["admin", "guest"]),
     ensureGuestDownloadsEnabled,
@@ -310,17 +333,70 @@ export const registerFileRoutes = (router: express.Router) => {
     }
   );
 
+  const deleteFileAtPath = async (
+    filePath: string,
+    res: Response<DeleteFileResult | ErrorResponse>
+  ) => {
+    try {
+      const stat = await fs.promises.stat(filePath);
+      if (!stat.isFile()) {
+        return res.status(404).json({
+          message: "File not found.",
+          errorKey: "FILE_NOT_FOUND",
+          property: "filename",
+          additionalParams: {},
+        });
+      }
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (err?.code === "ENOENT") {
+        return res.status(404).json({
+          message: "File not found.",
+          errorKey: "FILE_NOT_FOUND",
+          property: "filename",
+          additionalParams: {},
+        });
+      }
+      throw error;
+    }
+
+    await fs.promises.unlink(filePath);
+    return res.status(200).json({ ok: true, message: "File deleted." });
+  };
+
   router.delete(
-    "/:eventId/files/:filename",
-    validateRequest({ params: eventFileParamsSchema }, { errorKey: "INVALID_EVENT_ID" }),
+    "/:eventId/files/:folder/:filename",
+    validateRequest(
+      { params: eventFileInFolderParamsSchema },
+      {
+        errorKey: ({ part, issue, defaultKey }) => {
+          if (part !== "params") return defaultKey;
+          const field = issue.path[0];
+          if (field === "eventId") return "INVALID_EVENT_ID";
+          if (field === "folder") return "INVALID_FOLDER";
+          if (field === "filename") return "INVALID_FILENAME";
+          return defaultKey;
+        },
+      }
+    ),
     loadEvent,
     verifyAccess(["admin"]),
     async (
-      req: ValidatedReq<{ params: typeof eventFileParamsSchema }>,
+      req: ValidatedReq<{ params: typeof eventFileInFolderParamsSchema }>,
       res: Response<DeleteFileResult | ErrorResponse>,
       next: NextFunction
     ) => {
       try {
+        const folder = parseFolder(req.params.folder || "");
+        if (!folder) {
+          return res.status(400).json({
+            message: "Invalid folder name.",
+            errorKey: "INVALID_FOLDER",
+            property: "folder",
+            additionalParams: {},
+          });
+        }
+
         const filename = req.params.filename || "";
         if (filename.includes("..")) {
           return res.status(400).json({
@@ -331,33 +407,70 @@ export const registerFileRoutes = (router: express.Router) => {
           });
         }
 
-        const filePath = path.resolve(DATA_ROOT_PATH, req.params.eventId, FILES_DIR_NAME, filename);
+        const filePath = path.resolve(
+          DATA_ROOT_PATH,
+          req.params.eventId,
+          FILES_DIR_NAME,
+          folder,
+          filename
+        );
+        return await deleteFileAtPath(filePath, res);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
 
-        try {
-          const stat = await fs.promises.stat(filePath);
-          if (!stat.isFile()) {
-            return res.status(404).json({
-              message: "File not found.",
-              errorKey: "FILE_NOT_FOUND",
-              property: "filename",
-              additionalParams: {},
-            });
-          }
-        } catch (error) {
-          const err = error as NodeJS.ErrnoException;
-          if (err?.code === "ENOENT") {
-            return res.status(404).json({
-              message: "File not found.",
-              errorKey: "FILE_NOT_FOUND",
-              property: "filename",
-              additionalParams: {},
-            });
-          }
-          throw error;
+  router.delete(
+    "/:eventId/files/:filename",
+    validateRequest(
+      { params: eventFileParamsSchema },
+      {
+        errorKey: ({ part, issue, defaultKey }) => {
+          if (part !== "params") return defaultKey;
+          const field = issue.path[0];
+          if (field === "eventId") return "INVALID_EVENT_ID";
+          if (field === "filename") return "INVALID_FILENAME";
+          return defaultKey;
+        },
+      }
+    ),
+    loadEvent,
+    verifyAccess(["admin"]),
+    async (
+      req: ValidatedReq<{ params: typeof eventFileParamsSchema }>,
+      res: Response<DeleteFileResult | ErrorResponse>,
+      next: NextFunction
+    ) => {
+      try {
+        const folder = parseFolder((req.query.folder as string) || "");
+        if (folder === null) {
+          return res.status(400).json({
+            message: "Invalid folder name.",
+            errorKey: "INVALID_FOLDER",
+            property: "folder",
+            additionalParams: {},
+          });
         }
 
-        await fs.promises.unlink(filePath);
-        return res.status(200).json({ ok: true, message: "File deleted." });
+        const filename = req.params.filename || "";
+        if (filename.includes("..")) {
+          return res.status(400).json({
+            message: "Invalid file name.",
+            errorKey: "INVALID_FILENAME",
+            property: "filename",
+            additionalParams: {},
+          });
+        }
+
+        const filePath = path.resolve(
+          DATA_ROOT_PATH,
+          req.params.eventId,
+          FILES_DIR_NAME,
+          folder || "",
+          filename
+        );
+        return await deleteFileAtPath(filePath, res);
       } catch (error) {
         next(error);
       }
@@ -401,6 +514,10 @@ export const registerFileRoutes = (router: express.Router) => {
           "Content-Disposition",
           `attachment; filename="${req.params.eventId}-files.zip"`
         );
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+        res.setHeader("Surrogate-Control", "no-store");
 
         const archive = createZipArchive(dir);
         archive.on("error", (err: Error) => next(err));
