@@ -21,7 +21,12 @@ export type ValidatedReq<S extends SchemaMap> = Request<
   InferSchema<S>["query"]
 >;
 
-type ErrorKeyOption = ErrorKey | Partial<Record<keyof SchemaMap, ErrorKey>>;
+type ErrorKeyResolver = (args: {
+  part: keyof SchemaMap;
+  issue: z.ZodIssue;
+  defaultKey: ErrorKey;
+}) => ErrorKey;
+type ErrorKeyOption = ErrorKey | Partial<Record<keyof SchemaMap, ErrorKey>> | ErrorKeyResolver;
 
 export const validateRequest = <S extends SchemaMap>(
   schemas: S,
@@ -41,10 +46,14 @@ export const validateRequest = <S extends SchemaMap>(
       const parsed = schema.safeParse(currentValue ?? {});
       if (!parsed.success) {
         const issue = parsed.error.issues[0];
-        const errorKey =
+        const defaultKey =
           typeof opts?.errorKey === "string"
             ? opts.errorKey
             : opts?.errorKey?.[part] || "INVALID_INPUT";
+        const errorKey =
+          typeof opts?.errorKey === "function"
+            ? opts.errorKey({ part, issue, defaultKey })
+            : defaultKey;
         const formattedIssue = buildValidationError(issue, errorKey);
         return res.status(400).json(formattedIssue);
       }

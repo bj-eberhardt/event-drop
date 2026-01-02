@@ -157,7 +157,19 @@ export const registerPreviewRoutes = (router: express.Router) => {
 
   router.get(
     "/:eventId/files/:folder/:filename/preview",
-    validateRequest({ params: eventFileInFolderParamsSchema }, { errorKey: "INVALID_EVENT_ID" }),
+    validateRequest(
+      { params: eventFileInFolderParamsSchema },
+      {
+        errorKey: ({ part, issue, defaultKey }) => {
+          if (part !== "params") return defaultKey;
+          const field = issue.path[0];
+          if (field === "eventId") return "INVALID_EVENT_ID";
+          if (field === "folder") return "INVALID_FOLDER";
+          if (field === "filename") return "INVALID_FILENAME";
+          return defaultKey;
+        },
+      }
+    ),
     loadEvent,
     validateRequest({ query: previewQuerySchema }, { errorKey: "INVALID_INPUT" }),
     verifyAccess(["admin", "guest"]),

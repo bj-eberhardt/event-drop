@@ -1194,6 +1194,32 @@ test.describe("GET /api/events/{eventId}/files/{folder}/{filename}/preview", () 
     expect(body.errorKey).toBe("INVALID_FOLDER");
     expect(body.property).toBe("folder");
   });
+
+  test("rejects invalid event id", async ({ request }, testInfo) => {
+    const apiBase = getApiBaseUrl(testInfo.project.use.baseURL as string | undefined);
+
+    const response = await request.get(
+      `${apiBase}/api/events/bad_/files/album/preview.png/preview`
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_EVENT_ID");
+  });
+
+  test("rejects invalid filename", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/album/bad%5Cname/preview`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_FILENAME");
+    expect(body.property).toBe("filename");
+  });
 });
 
 test.describe("DELETE /api/events/{eventId}/files/{filename}", () => {
