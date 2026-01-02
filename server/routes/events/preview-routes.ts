@@ -114,7 +114,7 @@ export const registerPreviewRoutes = (router: express.Router) => {
         res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
         return res.status(200).send(buffer);
       } catch (err) {
-        logger.error("Error generating preview for file: " + filePath + ": " + err);
+        logger.error("Error generating preview for file", { filePath }, err);
         return res.status(400).json({
           message: "Preview not available for this file.",
           errorKey: "INVALID_INPUT",

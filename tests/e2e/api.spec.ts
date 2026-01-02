@@ -1020,7 +1020,7 @@ test.describe("GET /api/events/{eventId}/files/{filename}", () => {
 });
 
 test.describe("GET /api/events/{eventId}/files/{filename}/preview", () => {
-  test("returns resized preview with no-store cache headers", async ({ request }, testInfo) => {
+  test("returns resized preview with cache headers", async ({ request }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
     const apiBase = getApiBaseUrl(baseURL);
@@ -1463,6 +1463,30 @@ test.describe("GET /api/events/{eventId}/files.zip", () => {
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toContain("application/zip");
     expect(response.headers()["cache-control"]).toContain("no-store");
+  });
+
+  test("returns no-cache headers for zip downloads", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
+    const apiBase = getApiBaseUrl(baseURL);
+
+    await uploadFile(
+      request,
+      apiBase,
+      payload.eventId as string,
+      { user: "guest", password: payload.guestPassword as string },
+      { name: "zip-cache.txt", mimeType: "text/plain", content: "zip cache" }
+    );
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files.zip`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(200);
+    expect(response.headers()["cache-control"]).toContain("no-store");
+    expect(response.headers()["pragma"]).toContain("no-cache");
+    expect(response.headers()["surrogate-control"]).toContain("no-store");
+    expect(response.headers()["expires"]).toBe("0");
   });
 
   test("downloads zip with guest auth when downloads enabled", async ({ request }, testInfo) => {
