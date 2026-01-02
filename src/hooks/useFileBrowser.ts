@@ -23,6 +23,7 @@ type UseFileBrowserResult = {
   statusMessage: string;
   statusTone: "good" | "bad" | "";
   isLoading: boolean;
+  isZipDownloading: boolean;
   fetchFiles: (
     folderParam?: string,
     opts?: { pushHistory?: boolean; replaceHistory?: boolean }
@@ -75,6 +76,7 @@ export const useFileBrowser = ({
   const [folders, setFolders] = useState<string[]>([]);
   const [currentFolder, setCurrentFolder] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isZipDownloading, setIsZipDownloading] = useState(false);
   const { message: feedbackMessage, showError, showSuccess, clear } = useTimedFeedback();
   const [deleteCandidate, setDeleteCandidate] = useState<string | null>(null);
   const [skipDeletePrompt, setSkipDeletePrompt] = useState(false);
@@ -252,11 +254,14 @@ export const useFileBrowser = ({
   deleteFileRef.current = deleteFile;
 
   const downloadZip = useCallback(async () => {
+    setIsZipDownloading(true);
     try {
       const blob = await apiClient.downloadZip(subdomain, currentFolder || undefined);
       downloadBlob(blob, `${subdomain}-files.zip`);
     } catch (error) {
       handleApiError(error, t("FileBrowser.zipError"));
+    } finally {
+      setIsZipDownloading(false);
     }
   }, [apiClient, currentFolder, handleApiError, subdomain, t]);
 
@@ -299,6 +304,7 @@ export const useFileBrowser = ({
     statusMessage: feedbackMessage?.text || "",
     statusTone: (feedbackMessage?.tone as "good" | "bad" | "") || "",
     isLoading,
+    isZipDownloading,
     fetchFiles,
     openPreview,
     downloadFile,

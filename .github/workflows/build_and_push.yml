@@ -68,16 +68,30 @@ jobs:
         if: success()
         working-directory: docker/prod
         run: |
-          docker buildx bake \
-            --allow=fs.read=/home/runner/work \
-            -f docker-compose.prod.yml \
-            --set web.platform=linux/amd64,linux/arm64 \
-            --set web.tags=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-web:latest \
-            --set web.tags+=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-web:${{ steps.get-version.outputs.version }} \
-            --set api.platform=linux/amd64,linux/arm64 \
-            --set api.tags=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-api:latest \
-            --set api.tags+=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-api:${{ steps.get-version.outputs.version }} \
-            --push
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            echo "Buildx push attempt ${attempt}/3"
+            if docker buildx bake \
+              --progress=plain \
+              --allow=fs.read=/home/runner/work \
+              -f docker-compose.prod.yml \
+              --set web.platform=linux/amd64,linux/arm64 \
+              --set web.tags=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-web:latest \
+              --set web.tags+=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-web:${{ steps.get-version.outputs.version }} \
+              --set api.platform=linux/amd64,linux/arm64 \
+              --set api.tags=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-api:latest \
+              --set api.tags+=${{ secrets.DOCKERHUB_USERNAME }}/eventdrop-api:${{ steps.get-version.outputs.version }} \
+              --push; then
+              break
+            fi
+            if [ "${attempt}" -lt 3 ]; then
+              echo "Push failed, retrying after delay..."
+              sleep 10
+            else
+              echo "Push failed after 3 attempts."
+              exit 1
+            fi
+          done
 
       - name: Push version and tag
         if: success()

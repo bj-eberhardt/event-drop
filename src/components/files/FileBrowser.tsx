@@ -19,6 +19,7 @@ export function FileBrowser({ subdomain, mode }: FileBrowserProps) {
     statusMessage,
     statusTone,
     isLoading,
+    isZipDownloading,
     fetchFiles,
     openPreview,
     downloadFile,
@@ -42,11 +43,15 @@ export function FileBrowser({ subdomain, mode }: FileBrowserProps) {
             className="ghost icon-text-btn"
             type="button"
             onClick={downloadZip}
-            disabled={isLoading}
+            disabled={isLoading || isZipDownloading}
             aria-label={t("FileBrowser.downloadZip")}
           >
-            <ArchiveIcon />
-            {t("FileBrowser.downloadZip")}
+            {isZipDownloading ? (
+              <span className="zip-download-spinner" aria-hidden />
+            ) : (
+              <ArchiveIcon />
+            )}
+            {isZipDownloading ? t("FileBrowser.zipDownloading") : t("FileBrowser.downloadZip")}
           </button>
         ) : null}
       </div>
