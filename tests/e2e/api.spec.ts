@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createCleanupTracker } from "./support/cleanup";
 import { getUniqueEventId } from "./support/ids";
+import { readFileSync } from "node:fs";
 
 type Auth = { user: "admin" | "guest"; password: string };
 
@@ -84,11 +85,7 @@ const uploadFile = async (
     });
   });
 
-const tinyPng = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAA" +
-    "AAC0lEQVR42mP8/x8AAwMB/6X4nXcAAAAASUVORK5CYII=",
-  "base64"
-);
+const tinyPng = readFileSync("tests/e2e/assets/sample.png");
 
 test.afterEach(async ({ request }) => {
   await cleanup.cleanupAll(request);
