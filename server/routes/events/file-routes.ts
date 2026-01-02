@@ -1,6 +1,7 @@
 import express, { NextFunction, Response } from "express";
 import fs from "node:fs";
 import path from "node:path";
+import sharp from "sharp";
 import { DATA_ROOT_PATH } from "../../config.js";
 import { FILES_DIR_NAME } from "../../constants.js";
 import { createZipArchive, filesDir, listFiles, moveUploadedFiles } from "../../services/files.js";
@@ -18,6 +19,35 @@ import {
 import { DeleteFileResult, ErrorResponse, FileEntry } from "../../types.js";
 
 export const registerFileRoutes = (router: express.Router) => {
+  const MAX_PREVIEW_WIDTH = 1500;
+  const parsePositiveInt = (value: unknown): number | null => {
+    if (value === undefined || value === null || value === "") return null;
+    const parsed = Number.parseInt(String(value), 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+    return parsed;
+  };
+
+  const parseQuality = (value: unknown): number | null => {
+    if (value === undefined || value === null || value === "") return null;
+    const parsed = Number.parseInt(String(value), 10);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 100) return null;
+    return parsed;
+  };
+
+  const normalizeFit = (value: unknown): "inside" | "cover" | null => {
+    if (!value) return null;
+    const fit = String(value).toLowerCase();
+    if (fit === "inside" || fit === "cover") return fit;
+    return null;
+  };
+
+  const normalizeFormat = (value: unknown): "jpeg" | "webp" | "png" | null => {
+    if (!value) return null;
+    const format = String(value).toLowerCase();
+    if (format === "jpeg" || format === "jpg") return "jpeg";
+    if (format === "webp" || format === "png") return format;
+    return null;
+  };
   router.get(
     "/:eventId/files",
     validateRequest({ params: eventIdSchema }, { errorKey: "INVALID_EVENT_ID" }),
@@ -179,7 +209,7 @@ export const registerFileRoutes = (router: express.Router) => {
     ensureGuestDownloadsEnabled,
     async (
       req: ValidatedReq<{ params: typeof eventFileParamsSchema }>,
-      res: Response<ErrorResponse | void>,
+      res: Response<ErrorResponse | Buffer>,
       next: NextFunction
     ) => {
       try {
@@ -232,11 +262,219 @@ export const registerFileRoutes = (router: express.Router) => {
           }
           throw error;
         }
-        res.setHeader("Cache-Control", "public, max-age=86400");
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+        res.setHeader("Surrogate-Control", "no-store");
         return res.sendFile(filePath);
       } catch (error) {
         next(error);
       }
+    }
+  );
+
+  const handlePreview = async (
+    req: ValidatedReq<{
+      params: typeof eventFileParamsSchema | typeof eventFileInFolderParamsSchema;
+    }>,
+    res: Response<ErrorResponse | Buffer>,
+    next: NextFunction,
+    folderValue: string
+  ) => {
+    try {
+      const folder = parseFolder(folderValue);
+      if (folder === null) {
+        return res.status(400).json({
+          message: "Invalid folder name.",
+          errorKey: "INVALID_FOLDER",
+          property: "folder",
+          additionalParams: {},
+        });
+      }
+
+      const width = parsePositiveInt(req.query.w);
+      const height = parsePositiveInt(req.query.h);
+      if (req.query.w !== undefined && width === null) {
+        return res.status(400).json({
+          message: "Invalid width.",
+          errorKey: "INVALID_INPUT",
+          property: "w",
+          additionalParams: {},
+        });
+      }
+      if (req.query.h !== undefined && height === null) {
+        return res.status(400).json({
+          message: "Invalid height.",
+          errorKey: "INVALID_INPUT",
+          property: "h",
+          additionalParams: {},
+        });
+      }
+
+      if (width !== null && width > MAX_PREVIEW_WIDTH) {
+        return res.status(400).json({
+          message: "Preview width is too large.",
+          errorKey: "INVALID_INPUT",
+          property: "w",
+          additionalParams: { MAX_ALLOWED: MAX_PREVIEW_WIDTH },
+        });
+      }
+
+      const quality = parseQuality(req.query.q);
+      if (req.query.q !== undefined && quality === null) {
+        return res.status(400).json({
+          message: "Invalid quality.",
+          errorKey: "INVALID_INPUT",
+          property: "q",
+          additionalParams: {},
+        });
+      }
+
+      const fit = normalizeFit(req.query.fit);
+      if (req.query.fit !== undefined && fit === null) {
+        return res.status(400).json({
+          message: "Invalid fit.",
+          errorKey: "INVALID_INPUT",
+          property: "fit",
+          additionalParams: {},
+        });
+      }
+
+      const formatInput = normalizeFormat(req.query.format);
+      if (req.query.format !== undefined && formatInput === null) {
+        return res.status(400).json({
+          message: "Invalid format.",
+          errorKey: "INVALID_INPUT",
+          property: "format",
+          additionalParams: {},
+        });
+      }
+      const format = formatInput ?? "jpeg";
+
+      const filename = req.params.filename || "";
+      if (!isSafeFilename(filename)) {
+        return res.status(400).json({
+          message: "Invalid file name.",
+          errorKey: "INVALID_FILENAME",
+          property: "filename",
+          additionalParams: {},
+        });
+      }
+
+      const filePath = path.resolve(
+        DATA_ROOT_PATH,
+        req.params.eventId,
+        FILES_DIR_NAME,
+        folder || "",
+        filename
+      );
+
+      const lowerName = filename.toLowerCase();
+      const isImage =
+        lowerName.endsWith(".jpg") ||
+        lowerName.endsWith(".jpeg") ||
+        lowerName.endsWith(".png") ||
+        lowerName.endsWith(".webp");
+      if (!isImage) {
+        return res.status(415).json({
+          message: "Preview not available for this file type.",
+          errorKey: "UNSUPPORTED_FILE_TYPE",
+          property: "filename",
+          additionalParams: {},
+        });
+      }
+
+      try {
+        const stats = await fs.promises.stat(filePath);
+        if (!stats.isFile()) {
+          return res.status(404).json({
+            message: "File not found.",
+            errorKey: "FILE_NOT_FOUND",
+            property: "filename",
+            additionalParams: {},
+          });
+        }
+      } catch (error) {
+        const err = error as NodeJS.ErrnoException;
+        if (err?.code === "ENOENT") {
+          return res.status(404).json({
+            message: "File not found.",
+            errorKey: "FILE_NOT_FOUND",
+            property: "filename",
+            additionalParams: {},
+          });
+        }
+        throw error;
+      }
+
+      try {
+        let pipeline = sharp(filePath).rotate();
+        if (width || height) {
+          pipeline = pipeline.resize({
+            width: width ?? undefined,
+            height: height ?? undefined,
+            fit: fit ?? "inside",
+            withoutEnlargement: true,
+          });
+        }
+
+        if (format === "jpeg") {
+          pipeline = pipeline.jpeg({ quality: quality ?? 80 });
+          res.type("image/jpeg");
+        } else if (format === "webp") {
+          pipeline = pipeline.webp({ quality: quality ?? 80 });
+          res.type("image/webp");
+        } else {
+          pipeline = pipeline.png();
+          res.type("image/png");
+        }
+
+        const buffer = await pipeline.toBuffer();
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+        res.setHeader("Surrogate-Control", "no-store");
+        return res.status(200).send(buffer);
+      } catch {
+        return res.status(400).json({
+          message: "Preview not available for this file.",
+          errorKey: "INVALID_INPUT",
+          property: "filename",
+          additionalParams: {},
+        });
+      }
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  router.get(
+    "/:eventId/files/:filename/preview",
+    validateRequest({ params: eventFileParamsSchema }, { errorKey: "INVALID_EVENT_ID" }),
+    loadEvent,
+    verifyAccess(["admin", "guest"]),
+    ensureGuestDownloadsEnabled,
+    async (
+      req: ValidatedReq<{ params: typeof eventFileParamsSchema }>,
+      res: Response<ErrorResponse | Buffer>,
+      next: NextFunction
+    ) => {
+      await handlePreview(req, res, next, "");
+    }
+  );
+
+  router.get(
+    "/:eventId/files/:folder/:filename/preview",
+    validateRequest({ params: eventFileInFolderParamsSchema }, { errorKey: "INVALID_EVENT_ID" }),
+    loadEvent,
+    verifyAccess(["admin", "guest"]),
+    ensureGuestDownloadsEnabled,
+    async (
+      req: ValidatedReq<{ params: typeof eventFileInFolderParamsSchema }>,
+      res: Response<ErrorResponse | Buffer>,
+      next: NextFunction
+    ) => {
+      await handlePreview(req, res, next, req.params.folder || "");
     }
   );
 
@@ -401,6 +639,10 @@ export const registerFileRoutes = (router: express.Router) => {
           "Content-Disposition",
           `attachment; filename="${req.params.eventId}-files.zip"`
         );
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+        res.setHeader("Surrogate-Control", "no-store");
 
         const archive = createZipArchive(dir);
         archive.on("error", (err: Error) => next(err));

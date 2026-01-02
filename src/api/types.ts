@@ -97,6 +97,16 @@ export interface DownloadFileRequest {
   folder?: string;
 }
 
+export interface PreviewFileRequest {
+  filename: string;
+  folder?: string;
+  width?: number;
+  height?: number;
+  quality?: number;
+  fit?: "inside" | "cover";
+  format?: "jpeg" | "webp" | "png";
+}
+
 export interface DeleteFileRequest {
   filename: string;
 }

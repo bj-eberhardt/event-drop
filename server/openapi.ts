@@ -37,6 +37,7 @@ const ErrorKeySchema = z.enum([
   "INVALID_EVENT_ID",
   "FILE_NOT_FOUND",
   "NO_FILES_AVAILABLE",
+  "UNSUPPORTED_FILE_TYPE",
   "EVENT_ID_TAKEN",
   "EVENT_NOT_FOUND",
   "EVENT_CONTEXT_MISSING",
@@ -105,6 +106,14 @@ const FolderedFileParamSchema = EventIdParamSchema.extend({
 
 const FolderQuerySchema = z.object({
   folder: z.string().regex(FOLDER_REGEX, "Invalid folder").optional(),
+});
+
+const PreviewQuerySchema = z.object({
+  w: z.coerce.number().int().positive().optional(),
+  h: z.coerce.number().int().positive().optional(),
+  q: z.coerce.number().int().min(1).max(100).optional(),
+  fit: z.enum(["inside", "cover"]).optional(),
+  format: z.enum(["jpeg", "webp", "png"]).optional(),
 });
 
 const FileUploadSchema = z.any().openapi({ type: "string", format: "binary" });
@@ -335,6 +344,84 @@ registry.registerPath({
     },
     404: {
       description: "Not found",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/events/{eventId}/files/{filename}/preview",
+  request: {
+    params: FileParamSchema,
+    query: PreviewQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "Preview image",
+      content: {
+        "image/jpeg": { schema: BinaryResponseSchema },
+        "image/webp": { schema: BinaryResponseSchema },
+        "image/png": { schema: BinaryResponseSchema },
+      },
+    },
+    400: {
+      description: "Invalid input",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    401: {
+      description: "Authorization required",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    403: {
+      description: "Access denied",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    404: {
+      description: "Not found",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    415: {
+      description: "Unsupported file type",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/events/{eventId}/files/{folder}/{filename}/preview",
+  request: {
+    params: FileParamSchema.extend({ folder: z.string() }),
+    query: PreviewQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "Preview image",
+      content: {
+        "image/jpeg": { schema: BinaryResponseSchema },
+        "image/webp": { schema: BinaryResponseSchema },
+        "image/png": { schema: BinaryResponseSchema },
+      },
+    },
+    400: {
+      description: "Invalid input",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    401: {
+      description: "Authorization required",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    403: {
+      description: "Access denied",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    404: {
+      description: "Not found",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    415: {
+      description: "Unsupported file type",
       content: { "application/json": { schema: ErrorResponseSchema } },
     },
   },

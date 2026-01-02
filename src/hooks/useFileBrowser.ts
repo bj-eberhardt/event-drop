@@ -137,6 +137,29 @@ export const useFileBrowser = ({
     [apiClient, currentFolder, subdomain]
   );
 
+  const fetchPreviewBlob = useCallback(
+    async (
+      name: string,
+      options: {
+        width?: number;
+        height?: number;
+        quality?: number;
+        format?: "jpeg" | "webp" | "png";
+      }
+    ) => {
+      return await apiClient.downloadPreview(subdomain, {
+        filename: name,
+        folder: currentFolder || undefined,
+        width: options.width,
+        height: options.height,
+        quality: options.quality,
+        format: options.format,
+        fit: "inside",
+      });
+    },
+    [apiClient, currentFolder, subdomain]
+  );
+
   const downloadFile = useCallback(
     async (name: string) => {
       try {
@@ -170,6 +193,7 @@ export const useFileBrowser = ({
   const { openPreview, handlePreviewAfterDelete, previewModal } = useFilePreview({
     files,
     fetchFileBlob,
+    fetchPreviewBlob,
     onError: handleApiError,
     onDownload: downloadFile,
     onRequestDelete: requestDelete,

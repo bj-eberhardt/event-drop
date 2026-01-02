@@ -59,16 +59,17 @@ const uploadFile = async (
   baseURL: string,
   eventId: string,
   auth: Auth,
-  file: { name: string; mimeType: string; content: string },
+  file: { name: string; mimeType: string; content: string | Buffer },
   from?: string
 ) => {
+  const buffer = Buffer.isBuffer(file.content) ? file.content : Buffer.from(file.content);
   const multipart: {
     [key: string]: string | number | boolean | { name: string; mimeType: string; buffer: Buffer };
   } = {
     files: {
       name: file.name,
       mimeType: file.mimeType,
-      buffer: Buffer.from(file.content),
+      buffer,
     },
   };
   if (from !== undefined) {
@@ -79,6 +80,12 @@ const uploadFile = async (
     multipart,
   });
 };
+
+const tinyPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAA" +
+    "AAC0lEQVR42mP8/x8AAwMB/6X4nXcAAAAASUVORK5CYII=",
+  "base64"
+);
 
 test.afterEach(async ({ request }) => {
   await cleanup.cleanupAll(request);
@@ -888,6 +895,182 @@ test.describe("GET /api/events/{eventId}/files/{filename}", () => {
   });
 });
 
+test.describe("GET /api/events/{eventId}/files/{filename}/preview", () => {
+  test("returns resized preview with no-store cache headers", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
+    const apiBase = getApiBaseUrl(baseURL);
+
+    await uploadFile(
+      request,
+      apiBase,
+      payload.eventId as string,
+      { user: "guest", password: payload.guestPassword as string },
+      { name: "preview.png", mimeType: "image/png", content: tinyPng }
+    );
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/preview.png/preview?w=320&format=jpeg`,
+      { headers: toAuthHeader({ user: "guest", password: payload.guestPassword as string }) }
+    );
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("image/jpeg");
+    expect(response.headers()["cache-control"]).toContain("no-store");
+    expect((await response.body()).length).toBeGreaterThan(0);
+  });
+
+  test("rejects invalid preview params", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/missing.png/preview?w=0`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_INPUT");
+    expect(body.property).toBe("w");
+  });
+
+  test("rejects preview width over limit", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/missing.png/preview?w=2000`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_INPUT");
+    expect(body.property).toBe("w");
+  });
+  test("rejects invalid height param", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/missing.png/preview?h=-1`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_INPUT");
+    expect(body.property).toBe("h");
+  });
+
+  test("rejects invalid quality param", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/missing.png/preview?q=200`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_INPUT");
+    expect(body.property).toBe("q");
+  });
+
+  test("rejects invalid fit param", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/missing.png/preview?fit=stretch`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_INPUT");
+    expect(body.property).toBe("fit");
+  });
+
+  test("rejects invalid format param", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/missing.png/preview?format=gif`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_INPUT");
+    expect(body.property).toBe("format");
+  });
+
+  test("rejects preview for non-image files", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    await uploadFile(
+      request,
+      apiBase,
+      payload.eventId as string,
+      { user: "guest", password: payload.guestPassword as string },
+      { name: "not-image.txt", mimeType: "text/plain", content: "hello" }
+    );
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/not-image.txt/preview`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(415);
+    const body = await response.json();
+    expect(body.errorKey).toBe("UNSUPPORTED_FILE_TYPE");
+    expect(body.property).toBe("filename");
+  });
+});
+
+test.describe("GET /api/events/{eventId}/files/{folder}/{filename}/preview", () => {
+  test("returns resized preview from folder path", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
+    const apiBase = getApiBaseUrl(baseURL);
+
+    await uploadFile(
+      request,
+      apiBase,
+      payload.eventId as string,
+      { user: "guest", password: payload.guestPassword as string },
+      { name: "folder-preview.png", mimeType: "image/png", content: tinyPng },
+      "album"
+    );
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/album/folder-preview.png/preview?w=200`,
+      { headers: toAuthHeader({ user: "guest", password: payload.guestPassword as string }) }
+    );
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("image/jpeg");
+    expect(response.headers()["cache-control"]).toContain("no-store");
+  });
+
+  test("rejects invalid folder path", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/bad!/preview.png/preview`,
+      { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_FOLDER");
+  });
+});
+
 test.describe("DELETE /api/events/{eventId}/files/{filename}", () => {
   test("deletes file with admin auth", async ({ request }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
@@ -1009,6 +1192,7 @@ test.describe("GET /api/events/{eventId}/files.zip", () => {
     );
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toContain("application/zip");
+    expect(response.headers()["cache-control"]).toContain("no-store");
   });
 
   test("downloads zip with guest auth when downloads enabled", async ({ request }, testInfo) => {
