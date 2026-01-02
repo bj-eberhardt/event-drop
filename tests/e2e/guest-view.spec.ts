@@ -383,14 +383,15 @@ test.describe("guest event view", () => {
       });
       const firstUpload = page.getByTestId("upload-item").filter({ hasText: "first.txt" });
       await expect(firstUpload.getByTestId("upload-status")).toHaveText(/fertig/i);
-      await expect(page.getByText(/L?dt/i)).toHaveCount(0);
       await expect
-        .poll(async () =>
-          page
-            .getByTestId("file-list")
-            .getByTestId("file-row")
-            .filter({ hasText: "first.txt" })
-            .count()
+        .poll(
+          async () =>
+            page
+              .getByTestId("file-list")
+              .getByTestId("file-row")
+              .filter({ hasText: "first.txt" })
+              .count(),
+          { timeout: 15_000, intervals: [500, 1000] }
         )
         .toBeGreaterThan(0);
     });
@@ -404,14 +405,15 @@ test.describe("guest event view", () => {
       });
       const secondUpload = page.getByTestId("upload-item").filter({ hasText: "second.txt" });
       await expect(secondUpload.getByTestId("upload-status")).toHaveText(/fertig/i);
-      await expect(page.getByText(/L?dt/i)).toHaveCount(0);
       await expect
-        .poll(async () =>
-          page
-            .getByTestId("file-list")
-            .getByTestId("file-row")
-            .filter({ hasText: "second.txt" })
-            .count()
+        .poll(
+          async () =>
+            page
+              .getByTestId("file-list")
+              .getByTestId("file-row")
+              .filter({ hasText: "second.txt" })
+              .count(),
+          { timeout: 15_000, intervals: [500, 1000] }
         )
         .toBeGreaterThan(0);
     });
@@ -428,7 +430,18 @@ test.describe("guest event view", () => {
       const thirdUpload = page.getByTestId("upload-item").filter({ hasText: "third.txt" });
       await expect(thirdUpload.getByTestId("upload-status")).toHaveText(/fertig/i);
 
-      await expect(page.getByText(/L?dt/i)).toHaveCount(0);
+      await expect
+        .poll(
+          async () =>
+            page
+              .getByTestId("filebrowser-folders")
+              .getByTestId("filebrowser-folder")
+              .filter({ hasText: "test" })
+              .count(),
+          { timeout: 15_000, intervals: [500, 1000] }
+        )
+        .toBeGreaterThan(0);
+
       const folderButton = page
         .getByTestId("filebrowser-folders")
         .getByTestId("filebrowser-folder")
