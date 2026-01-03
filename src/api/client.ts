@@ -1,4 +1,5 @@
 import { apiBase } from "../constants";
+import i18n from "../i18n";
 import type {
   ApiErrorResponse,
   CreateEventRequest,
@@ -94,6 +95,9 @@ export class ApiClient {
    * Handle API response and parse JSON or blob
    */
   private async handleResponse<T>(response: Response, returnBlob = false): Promise<T> {
+    if (response.status === 429) {
+      throw new ApiError(i18n.t("Errors.rateLimited"), response.status);
+    }
     if (returnBlob) {
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({ message: "Request failed" }));
@@ -268,7 +272,10 @@ export class ApiClient {
           resolve(response as UploadFilesResponse);
           return;
         }
-        const message = (response as ApiErrorResponse).message || "Request failed";
+        const message =
+          status === 429
+            ? i18n.t("Errors.rateLimited")
+            : (response as ApiErrorResponse).message || "Request failed";
         reject(new ApiError(message, status, response));
       };
 

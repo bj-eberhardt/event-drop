@@ -20,6 +20,8 @@ export function FileBrowser({ subdomain, mode }: FileBrowserProps) {
     statusTone,
     isLoading,
     isZipDownloading,
+    zipStatusMessage,
+    zipStatusTone,
     fetchFiles,
     openPreview,
     downloadFile,
@@ -55,6 +57,14 @@ export function FileBrowser({ subdomain, mode }: FileBrowserProps) {
           </button>
         ) : null}
       </div>
+      {zipStatusMessage ? (
+        <p
+          className={`helper${zipStatusTone ? ` status ${zipStatusTone}` : ""}`}
+          data-testid="zip-download-status"
+        >
+          {zipStatusMessage}
+        </p>
+      ) : null}
       {currentFolder ? (
         <div className="helper folder-helper">
           <span className="folder-name">

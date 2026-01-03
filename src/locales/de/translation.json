@@ -234,6 +234,10 @@
     "previewUnknownType": "Unbekannt",
     "downloadError": "Download fehlgeschlagen.",
     "zipError": "ZIP Download fehlgeschlagen.",
-    "zipDownloading": "ZIP Download läuft..."
+    "zipDownloading": "ZIP Download läuft...",
+    "zipSuccess": "ZIP Download gestartet."
+  },
+  "Errors": {
+    "rateLimited": "Sie haben die Aktion zu häufig durchgeführt. Bitte warten Sie einen Moment."
   }
 }

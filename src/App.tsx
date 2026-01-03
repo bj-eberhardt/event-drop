@@ -129,7 +129,9 @@ export default function App() {
       <div className="app-shell">
         <main className="form-page">
           <h1>{t("EventView.errorTitle")}</h1>
-          <p className="lede">{configError}</p>
+          <p data-testid="global-error" className="lede">
+            {configError}
+          </p>
         </main>
       </div>
     );
