@@ -11,8 +11,5 @@ RUN npm run build
 FROM nginx:1.27-alpine
 ENV UPLOAD_MAX_TOTAL_SIZE_BYTES=0
 COPY --from=build /app/dist /usr/share/nginx/html
-COPY docker/prod/nginx.prod.conf /etc/nginx/templates/default.rate-limit.conf.template
-COPY docker/prod/nginx.no-rate-limit.conf /etc/nginx/templates/default.no-rate-limit.conf.template
-COPY docker/prod/10-select-rate-limit-template.sh /docker-entrypoint.d/10-select-rate-limit-template.sh
-RUN chmod +x /docker-entrypoint.d/10-select-rate-limit-template.sh
+COPY docker/prod/nginx.prod.conf /etc/nginx/templates/default.conf.template
 EXPOSE 80
