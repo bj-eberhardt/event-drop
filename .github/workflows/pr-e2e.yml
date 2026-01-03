@@ -55,6 +55,7 @@ jobs:
           ALLOWED_DOMAINS: localhost
           SUPPORT_SUBDOMAIN: "true"
           ALLOW_EVENT_CREATION: "true"
+          RATE_LIMIT_ENABLED: "0"
         run: |
           docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml up -d
           for i in {1..60}; do
@@ -117,6 +118,7 @@ jobs:
           ALLOWED_DOMAINS: localhost
           SUPPORT_SUBDOMAIN: "false"
           ALLOW_EVENT_CREATION: "true"
+          RATE_LIMIT_ENABLED: "0"
         run: |
           docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml up -d
           for i in {1..60}; do
