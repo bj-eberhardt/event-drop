@@ -49,7 +49,8 @@ services:
       - "8080"
 
 # Optional web config (nginx)
-# - RATE_LIMIT_ENABLED=1 # set to 1/0 (or true/false) to enable/disable nginx rate limits
+# - RATE_LIMIT_ENABLED=1 # set to 1/0 to enable/disable nginx rate limits
+#   (nginx swaps between rate-limited and no-rate-limit templates on boot)
 ```
 
 start the stack via:
