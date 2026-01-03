@@ -48,6 +48,10 @@ jobs:
       - name: Build production images
         run: docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml build
 
+      - name: Mark log start (subdomain)
+        id: logs_subdomain_start
+        run: echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Start prod stack (subdomain)
         id: start_subdomain
         env:
@@ -66,10 +70,6 @@ jobs:
           done
           docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml logs
           exit 1
-
-      - name: Mark log start (subdomain)
-        id: logs_subdomain_start
-        run: echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
       - name: Run Playwright (subdomain)
         id: pw_subdomain
@@ -111,6 +111,10 @@ jobs:
           path: playwright-report-subdomain
           if-no-files-found: warn
 
+      - name: Mark log start (path)
+        id: logs_path_start
+        run: echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Start prod stack (path)
         id: start_path
         env:
@@ -129,10 +133,6 @@ jobs:
           done
           docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml logs
           exit 1
-
-      - name: Mark log start (path)
-        id: logs_path_start
-        run: echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
       - name: Run Playwright (path)
         id: pw_path

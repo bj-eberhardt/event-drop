@@ -47,6 +47,9 @@ services:
       - ./config:/config
     expose:
       - "8080"
+
+# Optional web config (nginx)
+# - RATE_LIMIT_ENABLED=1
 ```
 
 start the stack via:
