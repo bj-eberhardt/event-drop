@@ -129,7 +129,9 @@ export default function App() {
       <div className="app-shell">
         <main className="form-page">
           <h1>{t("EventView.errorTitle")}</h1>
-          <p className="lede">{configError}</p>
+          <p data-testid="global-error" className="lede">
+            {configError}
+          </p>
         </main>
       </div>
     );
@@ -140,7 +142,9 @@ export default function App() {
       <div className="app-shell">
         <main className="form-page">
           <h1>{t("EventView.errorTitle")}</h1>
-          <p className="lede">{t("App.domainNotAllowed")}</p>
+          <p className="lede" data-testid="domain-not-allowed">
+            {t("App.domainNotAllowed")}
+          </p>
         </main>
       </div>
     );

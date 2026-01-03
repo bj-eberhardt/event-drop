@@ -161,7 +161,9 @@ export function EventView({ subdomain, baseDomain, onBackHome, onAdmin }: EventV
     return (
       <main className="form-page">
         <h1>{t("EventView.errorTitle")}</h1>
-        <p className="lede">{message}</p>
+        <p data-testid="event-view-global-error" className="lede">
+          {message}
+        </p>
         <div className="actions">
           <button className="primary" onClick={onBackHome}>
             {t("EventView.backHome")}

@@ -225,7 +225,9 @@ export function AdminView({
     return (
       <main className="form-page">
         <h1>{t("AdminView.errorTitle")}</h1>
-        <p className="lede">{message}</p>
+        <p data-testid="admin-view-global-error" className="lede">
+          {message}
+        </p>
         <div className="actions">
           <button className="primary" onClick={onBackProject}>
             {t("AdminView.back")}

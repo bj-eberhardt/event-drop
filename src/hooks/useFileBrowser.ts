@@ -24,6 +24,8 @@ type UseFileBrowserResult = {
   statusTone: "good" | "bad" | "";
   isLoading: boolean;
   isZipDownloading: boolean;
+  zipStatusMessage: string;
+  zipStatusTone: "good" | "bad" | "";
   fetchFiles: (
     folderParam?: string,
     opts?: { pushHistory?: boolean; replaceHistory?: boolean }
@@ -77,6 +79,8 @@ export const useFileBrowser = ({
   const [currentFolder, setCurrentFolder] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isZipDownloading, setIsZipDownloading] = useState(false);
+  const [zipStatusMessage, setZipStatusMessage] = useState("");
+  const [zipStatusTone, setZipStatusTone] = useState<"good" | "bad" | "">("");
   const { message: feedbackMessage, showError, showSuccess, clear } = useTimedFeedback();
   const [deleteCandidate, setDeleteCandidate] = useState<string | null>(null);
   const [skipDeletePrompt, setSkipDeletePrompt] = useState(false);
@@ -254,12 +258,23 @@ export const useFileBrowser = ({
   deleteFileRef.current = deleteFile;
 
   const downloadZip = useCallback(async () => {
+    setZipStatusMessage("");
+    setZipStatusTone("");
     setIsZipDownloading(true);
     try {
       const blob = await apiClient.downloadZip(subdomain, currentFolder || undefined);
       downloadBlob(blob, `${subdomain}-files.zip`);
+      setZipStatusMessage(t("FileBrowser.zipSuccess"));
+      setZipStatusTone("good");
     } catch (error) {
-      handleApiError(error, t("FileBrowser.zipError"));
+      if (error instanceof ApiError) {
+        setZipStatusMessage(error.message || t("FileBrowser.zipError"));
+      } else if (error instanceof Error) {
+        setZipStatusMessage(error.message || t("FileBrowser.zipError"));
+      } else {
+        setZipStatusMessage(t("FileBrowser.zipError"));
+      }
+      setZipStatusTone("bad");
     } finally {
       setIsZipDownloading(false);
     }
@@ -305,6 +320,8 @@ export const useFileBrowser = ({
     statusTone: (feedbackMessage?.tone as "good" | "bad" | "") || "",
     isLoading,
     isZipDownloading,
+    zipStatusMessage,
+    zipStatusTone,
     fetchFiles,
     openPreview,
     downloadFile,

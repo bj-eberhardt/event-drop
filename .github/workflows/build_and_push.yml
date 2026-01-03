@@ -93,6 +93,48 @@ jobs:
             fi
           done
 
+      - name: Mark log start (prod smoke)
+        id: logs_prod_start
+        run: echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test prod compose
+        if: success()
+        env:
+          HTTP_PORT: 4000
+          ALLOWED_DOMAINS: localhost
+          SUPPORT_SUBDOMAIN: "true"
+          ALLOW_EVENT_CREATION: "true"
+          RATE_LIMIT_ENABLED: "1"
+        run: |
+          docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml up -d
+          for i in {1..60}; do
+            if curl -fsS http://localhost:4000/api/config; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml logs
+          exit 1
+
+      - name: Collect docker logs (prod smoke)
+        if: always()
+        env:
+          LOG_START: ${{ steps.logs_prod_start.outputs.started_at }}
+        run: |
+          docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml logs -t --since "$LOG_START" > docker-logs-prod-smoke.txt
+
+      - name: Stop prod stack (prod smoke)
+        if: always()
+        run: docker compose --env-file docker/prod/.env -f docker/prod/docker-compose.prod.yml down -v
+
+      - name: Upload docker logs (prod smoke)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-logs-prod-smoke
+          path: docker-logs-prod-smoke.txt
+          if-no-files-found: warn
+
       - name: Push version and tag
         if: success()
         run: |
