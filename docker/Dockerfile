@@ -35,5 +35,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev --ignore-scripts
 COPY --from=build /app/dist ./dist
 COPY --from=server-build /app/dist/server ./dist/server
+HEALTHCHECK --interval=20s --timeout=5s --retries=5 --start-period=10s \
+  CMD node -e "fetch('http://localhost:8080/api/config').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
 EXPOSE 8080
 CMD ["node", "dist/server/index.js"]
