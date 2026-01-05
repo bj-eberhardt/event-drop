@@ -20,6 +20,13 @@ const appConfigSchema = z.object({
   allowedDomains: z.array(z.string()).default([]),
   supportSubdomain: z.boolean().default(true),
   allowEventCreation: z.boolean().default(true),
+  authRateLimitMaxAttempts: z.number().int().nonnegative().default(10),
+  authRateLimitWindowMs: z.number().int().positive().default(60_0000),
+  authRateLimitBlockMs: z
+    .number()
+    .int()
+    .positive()
+    .default(5 * 60 * 1000), // 5 minutes
 });
 
 export type AppConfig = z.infer<typeof appConfigSchema>;
@@ -87,6 +94,9 @@ const envOverrides: Partial<AppConfig> = dropUndefined({
   allowedDomains: parseStringArrayEnv(process.env.ALLOWED_DOMAINS),
   supportSubdomain: parseBooleanEnv(process.env.SUPPORT_SUBDOMAIN),
   allowEventCreation: parseBooleanEnv(process.env.ALLOW_EVENT_CREATION),
+  authRateLimitMaxAttempts: parseNumberEnv(process.env.AUTH_RATE_LIMIT_MAX_ATTEMPTS),
+  authRateLimitWindowMs: parseNumberEnv(process.env.AUTH_RATE_LIMIT_WINDOW_MS),
+  authRateLimitBlockMs: parseNumberEnv(process.env.AUTH_RATE_LIMIT_BLOCK_MS),
 });
 
 let loadedConfig: AppConfig;
@@ -135,3 +145,6 @@ export const ENABLE_API_DOCS = CONFIG.enableApiDocs;
 export const ALLOWED_DOMAINS = CONFIG.allowedDomains;
 export const SUPPORT_SUBDOMAIN = CONFIG.supportSubdomain;
 export const ALLOW_EVENT_CREATION = CONFIG.allowEventCreation;
+export const AUTH_RATE_LIMIT_MAX_ATTEMPTS = CONFIG.authRateLimitMaxAttempts;
+export const AUTH_RATE_LIMIT_WINDOW_MS = CONFIG.authRateLimitWindowMs;
+export const AUTH_RATE_LIMIT_BLOCK_MS = CONFIG.authRateLimitBlockMs;

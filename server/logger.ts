@@ -1,9 +1,10 @@
 import { LOG_LEVEL } from "./config.js";
 
-type LevelName = "error" | "info" | "debug";
+type LevelName = "error" | "warn" | "info" | "debug";
 
 const levelWeights: Record<LevelName, number> = {
   error: 0,
+  warn: 1,
   info: 1,
   debug: 2,
 };
@@ -64,6 +65,19 @@ export const logger = {
       meta = { error };
     }
     console.error(formatBase("error", message, meta));
+  },
+  warn(message: string, metaOrError?: Record<string, unknown> | unknown, error?: unknown) {
+    if (!shouldLog("warn")) return;
+    let meta: Record<string, unknown> | undefined;
+    if (metaOrError && typeof metaOrError === "object" && !(metaOrError instanceof Error)) {
+      meta = metaOrError as Record<string, unknown>;
+      if (error !== undefined) meta = { ...meta, error };
+    } else if (metaOrError !== undefined) {
+      meta = { error: metaOrError };
+    } else if (error !== undefined) {
+      meta = { error };
+    }
+    console.warn(formatBase("warn", message, meta));
   },
   info(message: string, meta?: Record<string, unknown>) {
     if (!shouldLog("info")) return;

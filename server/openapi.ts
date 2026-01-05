@@ -45,6 +45,7 @@ const ErrorKeySchema = z.enum([
   "AUTHORIZATION_REQUIRED",
   "GUEST_DOWNLOADS_DISABLED",
   "EVENT_CREATION_DISABLED",
+  "RATE_LIMITED",
 ]);
 
 const ErrorResponseSchema = z.object({

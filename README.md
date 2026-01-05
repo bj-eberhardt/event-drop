@@ -78,6 +78,9 @@ You can either pass the following variables as environment variables or set them
 - `ALLOWED_DOMAINS` - Allowed base domains (comma-separated). Required for routing (e.g. `localhost` or `frontend`).
 - `SUPPORT_SUBDOMAIN` - Enable subdomain routing (`true`/`false`, default: `true`). If you don't have a domain with certificates on wildcard subdomains, set this to `false` to use URL path routing.
 - `ALLOW_EVENT_CREATION` - Enable new event creation for everyone (`true`/`false`, default: `true`).
+- `AUTH_RATE_LIMIT_MAX_ATTEMPTS` - Failed auth attempts before blocking (default: `10`, set `0` to disable).
+- `AUTH_RATE_LIMIT_WINDOW_MS` - Window for counting failed auth attempts in ms (default: `60 seconds`).
+- `AUTH_RATE_LIMIT_BLOCK_MS` - Block duration after limit in ms (default: `5 minutes`).
 
 **Backend config file (`server.config.json`)**
 
@@ -96,7 +99,10 @@ You can either pass the following variables as environment variables or set them
   "enableApiDocs": false,
   "allowedDomains": ["localhost"],
   "supportSubdomain": true,
-  "allowEventCreation": true
+  "allowEventCreation": true,
+  "authRateLimitMaxAttempts": 10,
+  "authRateLimitWindowMs": 300000,
+  "authRateLimitBlockMs": 300000
 }
 ```
 

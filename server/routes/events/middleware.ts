@@ -9,6 +9,7 @@ import {
 import { getEvent } from "../../services/events.js";
 import { ErrorResponse, EventConfig } from "../../types.js";
 import { DOMAIN } from "../../config.js";
+import { isAuthBlocked, recordAuthFailure } from "../../services/auth-rate-limit.js";
 
 declare module "express-serve-static-core" {
   interface Request {
@@ -51,6 +52,19 @@ export const verifyAccess = (
       }
 
       const credentials: AuthCredentials = parseBasicAuth(req);
+      const hasAuthHeader = Boolean(req.headers.authorization);
+      if (hasAuthHeader && credentials.user) {
+        const blocked = isAuthBlocked(req, event.eventId, credentials.user);
+        if (blocked.blocked) {
+          res.setHeader("Retry-After", String(blocked.retryAfter));
+          return res.status(429).json({
+            message: "Too many failed authentication attempts. Please wait and try again.",
+            errorKey: "RATE_LIMITED",
+            eventId: event.eventId,
+            additionalParams: { retryAfterSeconds: blocked.retryAfter },
+          });
+        }
+      }
 
       const adminAllowed = allowedUsers.includes("admin");
       const guestAllowed = allowedUsers.includes("guest");
@@ -60,6 +74,9 @@ export const verifyAccess = (
           req.user = { role: "admin" };
           return next();
         } else if (credentials.user == "admin") {
+          if (hasAuthHeader) {
+            recordAuthFailure(req, event.eventId, "admin");
+          }
           return res.status(401).json({
             message: "Authorization required.",
             errorKey: "AUTHORIZATION_REQUIRED",
@@ -83,6 +100,10 @@ export const verifyAccess = (
           eventId: event.eventId,
           additionalParams: {},
         });
+      }
+
+      if (hasAuthHeader && credentials.user) {
+        recordAuthFailure(req, event.eventId, credentials.user);
       }
 
       return res.status(403).json({

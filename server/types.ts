@@ -30,6 +30,7 @@ export const ERROR_KEYS = [
   "AUTHORIZATION_REQUIRED",
   "GUEST_DOWNLOADS_DISABLED",
   "EVENT_CREATION_DISABLED",
+  "RATE_LIMITED",
 ] as const;
 
 export type ErrorKey = (typeof ERROR_KEYS)[number];
