@@ -1,4 +1,5 @@
 import type { Request } from "express";
+import { logger } from "../logger.js";
 import {
   AUTH_RATE_LIMIT_BLOCK_MS,
   AUTH_RATE_LIMIT_MAX_ATTEMPTS,
@@ -36,9 +37,17 @@ export const isAuthBlocked = (req: Request, eventId: string, user: string) => {
   const entry = pruneAuthEntry(key, existing, now);
   if (!entry) return { blocked: false, retryAfter: 0 };
   if (entry.blockedUntil > now) {
+    const retryAfter = Math.ceil((entry.blockedUntil - now) / 1000);
+    logger.warn("auth_rate_limited", {
+      ip: getClientIp(req),
+      eventId,
+      user,
+      retryAfterSeconds: retryAfter,
+      blockedUntil: entry.blockedUntil,
+    });
     return {
       blocked: true,
-      retryAfter: Math.ceil((entry.blockedUntil - now) / 1000),
+      retryAfter,
     };
   }
   return { blocked: false, retryAfter: 0 };
@@ -60,6 +69,15 @@ export const recordAuthFailure = (req: Request, eventId: string, user: string) =
   const nextCount = existing.count + 1;
   const blockedUntil =
     nextCount >= AUTH_RATE_LIMIT_MAX_ATTEMPTS ? now + AUTH_RATE_LIMIT_BLOCK_MS : 0;
+  if (blockedUntil) {
+    logger.warn("auth_rate_limit_triggered", {
+      ip: getClientIp(req),
+      eventId,
+      user,
+      attempts: nextCount,
+      blockedUntil,
+    });
+  }
   authFailureTracker.set(key, {
     count: nextCount,
     firstAttempt: existing.firstAttempt,
