@@ -23,6 +23,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const openApiDocument = createOpenApiDocument();
 
+app.set("trust proxy", true);
+
 type OriginMatcher =
   | { type: "exact"; value: string }
   | { type: "wildcard"; scheme: string; host: string; port?: string };
