@@ -351,8 +351,9 @@ export class ApiClient {
    * Requires admin access
    */
   async deleteFile(eventId: string, request: DeleteFileRequest): Promise<DeleteFileResponse> {
+    const folderSegment = request.folder ? `/${encodeURIComponent(request.folder)}` : "";
     const response = await fetch(
-      `${apiBase}/api/events/${encodeURIComponent(eventId)}/files/${encodeURIComponent(request.filename)}`,
+      `${apiBase}/api/events/${encodeURIComponent(eventId)}/files${folderSegment}/${encodeURIComponent(request.filename)}`,
       {
         method: "DELETE",
         headers: this.getAuthHeader(),

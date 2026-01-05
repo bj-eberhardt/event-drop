@@ -1,5 +1,6 @@
 import { expect, test as base } from "@playwright/test";
-import { cleanupEvent, createEvent, getEvent, isEventAvailable } from "./support/api";
+import { cleanupEvent, createEvent, getEvent, isEventAvailable, uploadFile } from "./support/api";
+import { readFile } from "node:fs/promises";
 import { getUniqueEventId } from "./support/ids";
 import { buildEventUrl, getMode } from "./support/urls";
 
@@ -329,6 +330,71 @@ test.describe("admin event view", () => {
       expect(event.allowedMimeTypes).not.toContain("application/x-test");
       expect(event.secured).toBe(false);
       expect(event.allowGuestDownload).toBe(false);
+    });
+  });
+
+  test("admin can browse folder and download file, then zip is available at root", async ({
+    page,
+    request,
+    adminEvent,
+  }, testInfo) => {
+    testInfo.skip(!adminEvent.baseURL, "baseURL required");
+
+    const mode = getMode();
+    const adminUrl = buildEventUrl(adminEvent.baseURL as string, mode, adminEvent.eventId, true);
+    const folderName = "album-1";
+    const fileName = "folder-file.txt";
+    const fileContent = "hello from folder";
+
+    await test.step("upload file into folder via API", async () => {
+      await uploadFile(
+        request,
+        adminEvent.eventId,
+        { name: fileName, mimeType: "text/plain", content: fileContent },
+        adminEvent.baseURL,
+        { type: "admin", password: adminEvent.adminPassword },
+        folderName
+      );
+    });
+
+    await test.step("open admin view and navigate to folder", async () => {
+      await page.goto(adminUrl);
+      await loginIfPrompted(page, adminEvent.adminPassword);
+      await expect(page.getByTestId("admin-view")).toBeVisible();
+      await expect(page.getByTestId("filebrowser-admin")).toBeVisible();
+      await expect(page.getByTestId("filebrowser-folders")).toBeVisible();
+      const folderButton = page
+        .getByTestId("filebrowser-folder")
+        .filter({ hasText: folderName });
+      await expect(folderButton).toBeVisible();
+      await folderButton.click();
+      await expect(page.getByTestId("file-list")).toBeVisible();
+      await expect(page.getByTestId("file-list")).toContainText(fileName);
+    });
+
+    await test.step("download file and verify content", async () => {
+      const fileRow = page.getByTestId("file-row").filter({ hasText: fileName });
+      await expect(fileRow).toBeVisible();
+      const download = page.waitForEvent("download");
+      await fileRow.getByTestId("file-download").click();
+      const downloadEvent = await download;
+      const downloadPath = await downloadEvent.path();
+      const content = downloadPath ? await readFile(downloadPath, "utf8") : "";
+      expect(content).toBe(fileContent);
+    });
+
+    await test.step("delete file and return to root", async () => {
+      const fileRow = page.getByTestId("file-row").filter({ hasText: fileName });
+      await fileRow.getByTestId("file-delete").click();
+      await expect(page.getByTestId("modal")).toBeVisible();
+      await page.getByTestId("modal-confirm").click();
+      await expect(page.getByTestId("file-row")).toHaveCount(0);
+      await page.getByTestId("filebrowser-back").click();
+      await expect(page.getByTestId("filebrowser-admin")).toBeVisible();
+    });
+
+    await test.step("zip button is visible at root", async () => {
+      await expect(page.getByTestId("filebrowser-download-zip")).toBeVisible();
     });
   });
 

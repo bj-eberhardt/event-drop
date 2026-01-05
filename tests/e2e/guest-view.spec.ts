@@ -239,7 +239,7 @@ test.describe("guest event view", () => {
     const adminUrl = buildEventUrl(baseURL, mode, eventId, true);
     await page.goto(guestUrl);
 
-    await page.getByRole("button", { name: /admin login/i }).click();
+    await page.getByTestId("event-admin-login").click();
     await expect(page).toHaveURL(
       new RegExp(`^${adminUrl.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}/?$`)
     );
@@ -271,7 +271,7 @@ test.describe("guest event view", () => {
     const guestUrl = buildEventUrl(baseURL, mode, eventId);
     await page.goto(guestUrl);
 
-    await page.getByRole("button", { name: /zur startseite/i }).click();
+    await page.getByTestId("event-back-home").click();
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByTestId("home-logo")).toBeVisible();
   });
@@ -586,7 +586,7 @@ test.describe("guest event view", () => {
 
     await test.step("open preview and navigate with buttons", async () => {
       const firstRow = page.getByTestId("file-row").filter({ hasText: "image-1.png" });
-      await firstRow.getByRole("button", { name: "image-1.png" }).click();
+      await firstRow.getByTestId("file-open").click();
 
       await expect(page.getByText(/Datei 1 von 3/i)).toBeVisible();
       await expect(page.getByTestId("preview-prev")).toBeDisabled();

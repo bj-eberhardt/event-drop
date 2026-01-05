@@ -79,9 +79,13 @@ export const useFileBrowser = ({
   const [currentFolder, setCurrentFolder] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isZipDownloading, setIsZipDownloading] = useState(false);
-  const [zipStatusMessage, setZipStatusMessage] = useState("");
-  const [zipStatusTone, setZipStatusTone] = useState<"good" | "bad" | "">("");
   const { message: feedbackMessage, showError, showSuccess, clear } = useTimedFeedback();
+  const {
+    message: zipFeedback,
+    showError: showZipError,
+    showSuccess: showZipSuccess,
+    clear: clearZipFeedback,
+  } = useTimedFeedback();
   const [deleteCandidate, setDeleteCandidate] = useState<string | null>(null);
   const [skipDeletePrompt, setSkipDeletePrompt] = useState(false);
   const isAdmin = mode === "admin";
@@ -213,8 +217,10 @@ export const useFileBrowser = ({
       clear();
       setIsLoading(true);
       try {
-        const targetPath = currentFolder ? `${currentFolder}/${name}` : name;
-        await apiClient.deleteFile(subdomain, { filename: targetPath });
+        await apiClient.deleteFile(subdomain, {
+          filename: name,
+          folder: currentFolder || undefined,
+        });
 
         const response = await apiClient.listFiles(subdomain, { folder: currentFolder || "" });
         const nextFiles = response.files || [];
@@ -258,27 +264,24 @@ export const useFileBrowser = ({
   deleteFileRef.current = deleteFile;
 
   const downloadZip = useCallback(async () => {
-    setZipStatusMessage("");
-    setZipStatusTone("");
+    clearZipFeedback();
     setIsZipDownloading(true);
     try {
       const blob = await apiClient.downloadZip(subdomain, currentFolder || undefined);
       downloadBlob(blob, `${subdomain}-files.zip`);
-      setZipStatusMessage(t("FileBrowser.zipSuccess"));
-      setZipStatusTone("good");
+      showZipSuccess(t("FileBrowser.zipSuccess"));
     } catch (error) {
       if (error instanceof ApiError) {
-        setZipStatusMessage(error.message || t("FileBrowser.zipError"));
+        showZipError(error.message || t("FileBrowser.zipError"));
       } else if (error instanceof Error) {
-        setZipStatusMessage(error.message || t("FileBrowser.zipError"));
+        showZipError(error.message || t("FileBrowser.zipError"));
       } else {
-        setZipStatusMessage(t("FileBrowser.zipError"));
+        showZipError(t("FileBrowser.zipError"));
       }
-      setZipStatusTone("bad");
     } finally {
       setIsZipDownloading(false);
     }
-  }, [apiClient, currentFolder, handleApiError, subdomain, t]);
+  }, [apiClient, clearZipFeedback, currentFolder, showZipError, showZipSuccess, subdomain, t]);
 
   useEffect(() => {
     const initialFolder = getFolderFromLocation(mode, subdomain);
@@ -320,8 +323,8 @@ export const useFileBrowser = ({
     statusTone: (feedbackMessage?.tone as "good" | "bad" | "") || "",
     isLoading,
     isZipDownloading,
-    zipStatusMessage,
-    zipStatusTone,
+    zipStatusMessage: zipFeedback?.text || "",
+    zipStatusTone: (zipFeedback?.tone as "good" | "bad" | "") || "",
     fetchFiles,
     openPreview,
     downloadFile,

@@ -40,13 +40,14 @@ export function FileBrowser({ subdomain, mode }: FileBrowserProps) {
             ? t("FileBrowser.titleFolder", { folder: currentFolder })
             : t("FileBrowser.titleRoot")}
         </h2>
-        {files.length > 0 ? (
+        {files.length > 0 || folders.length > 0 ? (
           <button
             className="ghost icon-text-btn"
             type="button"
             onClick={downloadZip}
             disabled={isLoading || isZipDownloading}
             aria-label={t("FileBrowser.downloadZip")}
+            data-testid="filebrowser-download-zip"
           >
             {isZipDownloading ? (
               <span className="zip-download-spinner" aria-hidden />
