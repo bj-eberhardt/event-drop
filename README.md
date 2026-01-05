@@ -42,6 +42,7 @@ services:
       - SUPPORT_SUBDOMAIN=false
       - ALLOW_EVENT_CREATION=true
       - UPLOAD_MAX_FILE_SIZE_BYTES=0
+      - RATE_LIMIT_ENABLED=1 # set to 1/0 to enable/disable rate limits
     volumes:
       - ./data:/data/events
       - ./config:/config

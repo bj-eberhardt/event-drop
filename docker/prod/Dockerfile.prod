@@ -10,6 +10,7 @@ RUN npm run build
 
 FROM nginx:1.27-alpine
 ENV UPLOAD_MAX_TOTAL_SIZE_BYTES=0
+ENV RATE_LIMIT_ENABLED=1
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY docker/prod/nginx.prod.conf /etc/nginx/templates/default.conf.template
 EXPOSE 80
