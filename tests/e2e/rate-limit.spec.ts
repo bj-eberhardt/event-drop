@@ -162,7 +162,7 @@ test.describe("rate limit messaging", () => {
     });
 
     await test.step("mock 429 for file list", async () => {
-      let allowedRequests = 2;
+      let allowedRequests = 1;
       await page.route(`**/api/events/${eventId}/files*`, (route) => {
         console.log("File list request intercepted, allowedRequests =", allowedRequests);
         allowedRequests -= 1;
