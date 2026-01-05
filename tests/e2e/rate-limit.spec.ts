@@ -154,8 +154,15 @@ test.describe("rate limit messaging", () => {
     );
     cleanup.track({ eventId, adminPassword, baseURL });
 
+    const result = await test.step("open admin view and login", async () => {
+      const adminUrl = buildEventUrl(baseURL, mode, eventId, true);
+      await page.goto(adminUrl);
+      await page.waitForLoadState("load");
+      return await waitForPromptOrAdmin(page);
+    });
+
     await test.step("mock 429 for file list", async () => {
-      let allowedRequests = 3;
+      let allowedRequests = 2;
       await page.route(`**/api/events/${eventId}/files*`, (route) => {
         console.log("File list request intercepted, allowedRequests =", allowedRequests);
         allowedRequests -= 1;
@@ -182,11 +189,7 @@ test.describe("rate limit messaging", () => {
       });
     });
 
-    await test.step("open admin view and login", async () => {
-      const adminUrl = buildEventUrl(baseURL, mode, eventId, true);
-      await page.goto(adminUrl);
-      await page.waitForLoadState("load");
-      const result = await waitForPromptOrAdmin(page);
+    await test.step("login", async () => {
       if (result === "prompt") {
         await page.getByTestId("password-input").fill(adminPassword);
         await page.getByTestId("password-submit").click();
