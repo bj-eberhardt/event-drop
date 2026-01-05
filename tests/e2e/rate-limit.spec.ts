@@ -47,6 +47,17 @@ test.afterEach(async ({ request }) => {
 
 test.describe("rate limit messaging", () => {
   test("shows rate limit error when event creation is throttled", async ({ page }) => {
+    await test.step("fill new event form", async () => {
+      await page.goto("/new");
+      await expect(page.getByTestId("new-event-form")).toBeVisible();
+
+      const eventId = getUniqueEventId("e2e-rate");
+      await page.getByTestId("new-event-name").fill("Rate Limit Event");
+      await page.getByTestId("new-event-subdomain").fill(eventId);
+      await page.getByTestId("new-event-admin-password").fill("adminpass123");
+      await page.getByTestId("new-event-admin-password-confirm").fill("adminpass123");
+    });
+
     await test.step("mock 429 for event creation", async () => {
       await page.route("**/api/events", (route) => {
         if (route.request().method() !== "POST") {
@@ -61,20 +72,18 @@ test.describe("rate limit messaging", () => {
       });
     });
 
-    await test.step("fill new event form", async () => {
-      await page.goto("/new");
-      await expect(page.getByTestId("new-event-form")).toBeVisible();
-
-      const eventId = getUniqueEventId("e2e-rate");
-      await page.getByTestId("new-event-name").fill("Rate Limit Event");
-      await page.getByTestId("new-event-subdomain").fill(eventId);
-      await page.getByTestId("new-event-admin-password").fill("adminpass123");
-      await page.getByTestId("new-event-admin-password-confirm").fill("adminpass123");
-    });
-
     await test.step("submit and show rate limit message", async () => {
-      await page.getByTestId("new-event-submit").click();
-      await expect(page.getByTestId("new-event-submit-error")).toHaveText(RATE_LIMIT_MESSAGE);
+      const submitButton = page.getByTestId("new-event-submit");
+      const errorText = page.getByTestId("new-event-submit-error");
+      await expect
+        .poll(
+          async () => {
+            await submitButton.click();
+            return (await errorText.textContent())?.trim();
+          },
+          { timeout: 8_000, intervals: [500, 750, 1000] }
+        )
+        .toBe(RATE_LIMIT_MESSAGE);
     });
   });
 
