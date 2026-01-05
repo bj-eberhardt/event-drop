@@ -1,10 +1,5 @@
 import express, { NextFunction, Response } from "express";
-import fs from "node:fs";
-import path from "node:path";
 import sharp from "sharp";
-import { DATA_ROOT_PATH } from "../../config.js";
-import { FILES_DIR_NAME } from "../../constants.js";
-import { isSafeFilename } from "../../utils/validation.js";
 import { ensureGuestDownloadsEnabled, loadEvent, verifyAccess } from "./middleware.js";
 import {
   eventFileInFolderParamsSchema,
@@ -15,6 +10,8 @@ import {
 } from "./validators.js";
 import { ErrorResponse } from "../../types.js";
 import { logger } from "../../logger.js";
+import { storage } from "../../storage/index.js";
+import { sendStorageError } from "./storage-response.js";
 
 export const registerPreviewRoutes = (router: express.Router) => {
   const handlePreview = async (
@@ -27,24 +24,7 @@ export const registerPreviewRoutes = (router: express.Router) => {
     folderValue: string
   ) => {
     try {
-      const filename = req.params.filename || "";
-      if (!isSafeFilename(filename)) {
-        return res.status(400).json({
-          message: "Invalid file name.",
-          errorKey: "INVALID_FILENAME",
-          property: "filename",
-          additionalParams: {},
-        });
-      }
-
-      const filePath = path.resolve(
-        DATA_ROOT_PATH,
-        req.params.eventId,
-        FILES_DIR_NAME,
-        folderValue || "",
-        filename
-      );
-
+      const filename = req.params.filename;
       const width = req.query.w;
       const height = req.query.h;
       const fit = req.query.fit;
@@ -66,30 +46,17 @@ export const registerPreviewRoutes = (router: express.Router) => {
         });
       }
 
-      try {
-        const stats = await fs.promises.stat(filePath);
-        if (!stats.isFile()) {
-          return res.status(404).json({
-            message: "File not found.",
-            errorKey: "FILE_NOT_FOUND",
-            property: "filename",
-            additionalParams: {},
-          });
-        }
-      } catch (error) {
-        const err = error as NodeJS.ErrnoException;
-        if (err?.code === "ENOENT") {
-          return res.status(404).json({
-            message: "File not found.",
-            errorKey: "FILE_NOT_FOUND",
-            property: "filename",
-            additionalParams: {},
-          });
-        }
+      const fileResult = await storage.files.getFileBuffer(
+        req.params.eventId,
+        folderValue || "",
+        filename
+      );
+      if (!fileResult.ok) {
+        return sendStorageError(res, fileResult.error);
       }
 
       try {
-        let pipeline = sharp(filePath).rotate();
+        let pipeline = sharp(fileResult.data.buffer).rotate();
         if (width || height) {
           pipeline = pipeline.resize({
             width: width ?? undefined,
@@ -114,7 +81,11 @@ export const registerPreviewRoutes = (router: express.Router) => {
         res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
         return res.status(200).send(buffer);
       } catch (err) {
-        logger.error("Error generating preview for file", { filePath }, err);
+        logger.error(
+          "Error generating preview for file",
+          { eventId: req.params.eventId, folder: folderValue, filename },
+          err
+        );
         return res.status(400).type("application/json").json({
           message: "Preview not available for this file.",
           errorKey: "INVALID_INPUT",

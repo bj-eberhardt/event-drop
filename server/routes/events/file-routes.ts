@@ -1,9 +1,6 @@
 import express, { NextFunction, Response } from "express";
-import fs from "node:fs";
 import path from "node:path";
-import { DATA_ROOT_PATH } from "../../config.js";
-import { FILES_DIR_NAME } from "../../constants.js";
-import { createZipArchive, filesDir, listFiles, moveUploadedFiles } from "../../services/files.js";
+import { storage } from "../../storage/index.js";
 import { parseFolder, isSafeFilename } from "../../utils/validation.js";
 import { ensureGuestDownloadsEnabled, loadEvent, verifyAccess } from "./middleware.js";
 import { upload, cleanupUploadedFilesFromRequest, cleanupUploadedFiles } from "./upload.js";
@@ -16,6 +13,7 @@ import {
   ValidatedReq,
 } from "./validators.js";
 import { DeleteFileResult, ErrorResponse, FileEntry } from "../../types.js";
+import { sendStorageError } from "./storage-response.js";
 
 export const registerFileRoutes = (router: express.Router) => {
   router.get(
@@ -44,8 +42,11 @@ export const registerFileRoutes = (router: express.Router) => {
 
         const event = req.event!;
 
-        const dir = filesDir(event.eventId, folder);
-        const { files, folders } = await listFiles(dir);
+        const listResult = await storage.files.listFiles(event.eventId, folder);
+        if (!listResult.ok) {
+          return sendStorageError(res, listResult.error);
+        }
+        const { files, folders } = listResult.data;
 
         res.status(200).json({ files, folders, folder: folder || "" });
       } catch (error) {
@@ -153,7 +154,10 @@ export const registerFileRoutes = (router: express.Router) => {
         // the rejected files are removed from the upload folder
         await cleanupUploadedFiles(rejectedFiles).catch(() => {});
 
-        await moveUploadedFiles(project.eventId, folder, accepted);
+        const moveResult = await storage.files.moveUploadedFiles(project.eventId, folder, accepted);
+        if (!moveResult.ok) {
+          return sendStorageError(res, moveResult.error);
+        }
 
         return res.status(200).json({
           message: "Files uploaded successfully.",
@@ -214,37 +218,18 @@ export const registerFileRoutes = (router: express.Router) => {
           });
         }
 
-        const filePath = path.resolve(
-          DATA_ROOT_PATH,
+        const fileResult = await storage.files.getFileStream(
           req.params.eventId,
-          FILES_DIR_NAME,
           folder || "",
           filename
         );
-        try {
-          const stats = await fs.promises.stat(filePath);
-          if (!stats.isFile()) {
-            return res.status(404).json({
-              message: "File not found.",
-              errorKey: "FILE_NOT_FOUND",
-              property: "filename",
-              additionalParams: {},
-            });
-          }
-        } catch (error) {
-          const err = error as NodeJS.ErrnoException;
-          if (err?.code === "ENOENT") {
-            return res.status(404).json({
-              message: "File not found.",
-              errorKey: "FILE_NOT_FOUND",
-              property: "filename",
-              additionalParams: {},
-            });
-          }
-          throw error;
+        if (!fileResult.ok) {
+          return sendStorageError(res, fileResult.error);
         }
         res.setHeader("Cache-Control", "public, max-age=86400");
-        return res.sendFile(filePath);
+        res.type(path.extname(filename));
+        fileResult.data.stream.on("error", (err) => next(err));
+        fileResult.data.stream.pipe(res);
       } catch (error) {
         next(error);
       }
@@ -295,74 +280,20 @@ export const registerFileRoutes = (router: express.Router) => {
           });
         }
 
-        const filePath = path.resolve(
-          DATA_ROOT_PATH,
-          req.params.eventId,
-          FILES_DIR_NAME,
-          folder,
-          filename
-        );
-        try {
-          const stats = await fs.promises.stat(filePath);
-          if (!stats.isFile()) {
-            return res.status(404).json({
-              message: "File not found.",
-              errorKey: "FILE_NOT_FOUND",
-              property: "filename",
-              additionalParams: {},
-            });
-          }
-        } catch (error) {
-          const err = error as NodeJS.ErrnoException;
-          if (err?.code === "ENOENT") {
-            return res.status(404).json({
-              message: "File not found.",
-              errorKey: "FILE_NOT_FOUND",
-              property: "filename",
-              additionalParams: {},
-            });
-          }
-          throw error;
+        const fileResult = await storage.files.getFileStream(req.params.eventId, folder, filename);
+        if (!fileResult.ok) {
+          return sendStorageError(res, fileResult.error);
         }
 
         res.setHeader("Cache-Control", "public, max-age=86400");
-        return res.sendFile(filePath);
+        res.type(path.extname(filename));
+        fileResult.data.stream.on("error", (err) => next(err));
+        fileResult.data.stream.pipe(res);
       } catch (error) {
         next(error);
       }
     }
   );
-
-  const deleteFileAtPath = async (
-    filePath: string,
-    res: Response<DeleteFileResult | ErrorResponse>
-  ) => {
-    try {
-      const stat = await fs.promises.stat(filePath);
-      if (!stat.isFile()) {
-        return res.status(404).json({
-          message: "File not found.",
-          errorKey: "FILE_NOT_FOUND",
-          property: "filename",
-          additionalParams: {},
-        });
-      }
-    } catch (error) {
-      const err = error as NodeJS.ErrnoException;
-      if (err?.code === "ENOENT") {
-        return res.status(404).json({
-          message: "File not found.",
-          errorKey: "FILE_NOT_FOUND",
-          property: "filename",
-          additionalParams: {},
-        });
-      }
-      throw error;
-    }
-
-    await fs.promises.unlink(filePath);
-    return res.status(200).json({ ok: true, message: "File deleted." });
-  };
 
   router.delete(
     "/:eventId/files/:folder/:filename",
@@ -407,14 +338,11 @@ export const registerFileRoutes = (router: express.Router) => {
           });
         }
 
-        const filePath = path.resolve(
-          DATA_ROOT_PATH,
-          req.params.eventId,
-          FILES_DIR_NAME,
-          folder,
-          filename
-        );
-        return await deleteFileAtPath(filePath, res);
+        const deleteResult = await storage.files.deleteFile(req.params.eventId, folder, filename);
+        if (!deleteResult.ok) {
+          return sendStorageError(res, deleteResult.error);
+        }
+        return res.status(200).json(deleteResult.data);
       } catch (error) {
         next(error);
       }
@@ -463,14 +391,15 @@ export const registerFileRoutes = (router: express.Router) => {
           });
         }
 
-        const filePath = path.resolve(
-          DATA_ROOT_PATH,
+        const deleteResult = await storage.files.deleteFile(
           req.params.eventId,
-          FILES_DIR_NAME,
           folder || "",
           filename
         );
-        return await deleteFileAtPath(filePath, res);
+        if (!deleteResult.ok) {
+          return sendStorageError(res, deleteResult.error);
+        }
+        return res.status(200).json(deleteResult.data);
       } catch (error) {
         next(error);
       }
@@ -499,14 +428,9 @@ export const registerFileRoutes = (router: express.Router) => {
           });
         }
 
-        const dir = filesDir(req.params.eventId, folder);
-        if (!fs.existsSync(dir)) {
-          return res.status(404).json({
-            message: "No files available.",
-            errorKey: "NO_FILES_AVAILABLE",
-            property: "folder",
-            additionalParams: {},
-          });
+        const zipResult = await storage.files.createZipStream(req.params.eventId, folder);
+        if (!zipResult.ok) {
+          return sendStorageError(res, zipResult.error);
         }
 
         res.setHeader("Content-Type", "application/zip");
@@ -519,7 +443,7 @@ export const registerFileRoutes = (router: express.Router) => {
         res.setHeader("Expires", "0");
         res.setHeader("Surrogate-Control", "no-store");
 
-        const archive = createZipArchive(dir);
+        const archive = zipResult.data.stream;
         archive.on("error", (err: Error) => next(err));
         archive.pipe(res);
         await archive.finalize();

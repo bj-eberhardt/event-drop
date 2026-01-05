@@ -33,9 +33,11 @@ services:
       - ../../:/app
       - /app/node_modules
       - ./project-data:/data/projects
+      - ./project-uploads:/data/uploads
       - ./project-config:/config
     environment:
       - DATA_ROOT_PATH=/data/projects
+      - UPLOAD_TEMP_PATH=/data/uploads
       - PORT=8080
       - UPLOAD_MAX_FILE_SIZE_BYTES=${UPLOAD_MAX_FILE_SIZE_BYTES:-0}
       - UPLOAD_MAX_TOTAL_SIZE_BYTES=${UPLOAD_MAX_TOTAL_SIZE_BYTES:-0}

@@ -74,6 +74,7 @@ You can either pass the following variables as environment variables or set them
 - `ENABLE_API_DOCS` - Enable Swagger/OpenAPI (`true`/`false`, default: `false`).
 - `UPLOAD_MAX_FILE_SIZE_BYTES` - Max file size per file in bytes (Multer `fileSize` limit; 0 or empty = no limit).
 - `UPLOAD_MAX_TOTAL_SIZE_BYTES` - Max total size per upload in bytes (0 or empty = no limit).
+- `UPLOAD_TEMP_PATH` - Temporary upload directory for multipart uploads (default: `/data/uploads`).
 - `LOG_LEVEL` - Log level (`silent`, `error`, `info`, `debug`).
 - `ALLOWED_DOMAINS` - Allowed base domains (comma-separated). Required for routing (e.g. `localhost` or `frontend`).
 - `SUPPORT_SUBDOMAIN` - Enable subdomain routing (`true`/`false`, default: `true`). If you don't have a domain with certificates on wildcard subdomains, set this to `false` to use URL path routing.
@@ -95,6 +96,7 @@ You can either pass the following variables as environment variables or set them
   "jsonLimit": "5mb",
   "uploadMaxFileSizeBytes": 0,
   "uploadMaxTotalSizeBytes": 0,
+  "uploadTempPath": "/data/uploads",
   "logLevel": "info",
   "enableApiDocs": false,
   "allowedDomains": ["localhost"],

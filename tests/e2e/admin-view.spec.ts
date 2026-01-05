@@ -49,15 +49,27 @@ const expectInViewport = async (page: import("@playwright/test").Page, selector:
   expect(withinVertical && withinHorizontal).toBe(true);
 };
 
+const waitForPromptOrAdmin = async (page: import("@playwright/test").Page, timeout = 12_000) => {
+  const prompt = page.getByTestId("password-prompt");
+  const adminView = page.getByTestId("admin-view");
+  try {
+    return await Promise.race([
+      prompt.waitFor({ state: "visible", timeout }).then(() => "prompt" as const),
+      adminView.waitFor({ state: "visible", timeout }).then(() => "admin" as const),
+    ]);
+  } catch {
+    return "none" as const;
+  }
+};
+
 const loginIfPrompted = async (page: import("@playwright/test").Page, password: string) => {
   const prompt = page.getByTestId("password-prompt");
-  try {
-    await expect(prompt).toBeVisible({ timeout: 2000 });
-  } catch {
-    return;
-  }
+  const adminView = page.getByTestId("admin-view");
+  const result = await waitForPromptOrAdmin(page);
+  if (result !== "prompt") return;
   await page.getByTestId("password-input").fill(password);
   await page.getByTestId("password-submit").click();
+  await expect(adminView).toBeVisible();
   await expect(prompt).toHaveCount(0);
 };
 
