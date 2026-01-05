@@ -49,10 +49,7 @@ const expectInViewport = async (page: import("@playwright/test").Page, selector:
   expect(withinVertical && withinHorizontal).toBe(true);
 };
 
-const waitForPromptOrAdmin = async (
-  page: import("@playwright/test").Page,
-  timeout = 12_000
-) => {
+const waitForPromptOrAdmin = async (page: import("@playwright/test").Page, timeout = 12_000) => {
   const prompt = page.getByTestId("password-prompt");
   const adminView = page.getByTestId("admin-view");
   try {
