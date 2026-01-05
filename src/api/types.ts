@@ -109,6 +109,7 @@ export interface PreviewFileRequest {
 
 export interface DeleteFileRequest {
   filename: string;
+  folder?: string;
 }
 
 export interface DeleteFileResponse {

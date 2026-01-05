@@ -45,7 +45,12 @@ export function FileRow({
   return (
     <div className="file-row" key={file.name} data-testid="file-row">
       <div className="file-meta">
-        <button className="link-btn" ref={nameRef} onClick={() => onOpenPreview(file.name)}>
+        <button
+          className="link-btn"
+          ref={nameRef}
+          onClick={() => onOpenPreview(file.name)}
+          data-testid="file-open"
+        >
           {file.name}
         </button>
         <span className="helper">
@@ -73,6 +78,7 @@ export function FileRow({
             aria-label={t("FileBrowser.delete")}
             onClick={() => onRequestDelete(file.name)}
             disabled={isLoading}
+            data-testid="file-delete"
           >
             <TrashIcon />
           </button>

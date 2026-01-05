@@ -116,6 +116,42 @@ export const listFiles = async (
   );
 };
 
+export const uploadFile = async (
+  request: APIRequestContext,
+  eventId: string,
+  file: { name: string; mimeType: string; content: string | Buffer },
+  baseURL?: string,
+  auth?: { type: "guest" | "admin"; password: string },
+  folder?: string
+) => {
+  const apiBase = getApiBaseUrl(baseURL);
+  const headers = auth ? { Authorization: toBasicAuth(auth.type, auth.password) } : undefined;
+  const buffer = Buffer.isBuffer(file.content) ? file.content : Buffer.from(file.content);
+  const multipart: {
+    [key: string]: string | number | boolean | { name: string; mimeType: string; buffer: Buffer };
+  } = {
+    files: {
+      name: file.name,
+      mimeType: file.mimeType,
+      buffer,
+    },
+  };
+  if (folder !== undefined) {
+    multipart.from = folder;
+  }
+  const response = await withRetry(() =>
+    request.post(`${apiBase}/api/events/${encodeURIComponent(eventId)}/files`, {
+      headers,
+      multipart,
+    })
+  );
+  if (!response.ok()) {
+    const body = await response.text();
+    throw new Error(`Failed to upload file: ${response.status()} ${body}`);
+  }
+  return response;
+};
+
 export const cleanupEvent = async (
   request: APIRequestContext,
   eventId: string,

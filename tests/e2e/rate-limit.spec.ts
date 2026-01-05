@@ -280,7 +280,7 @@ test.describe("rate limit messaging", () => {
       }
       await expect(page.getByTestId("filebrowser-admin")).toBeVisible();
       await expect(page.getByTestId("file-list")).toContainText("zip-ready.txt");
-      await page.getByRole("button", { name: /download als zip/i }).click();
+      await page.getByTestId("filebrowser-download-zip").click();
     });
 
     await test.step("shows rate limit message", async () => {

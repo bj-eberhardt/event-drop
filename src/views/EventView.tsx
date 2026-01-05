@@ -134,7 +134,7 @@ export function EventView({ subdomain, baseDomain, onBackHome, onAdmin }: EventV
         <h1>{t("EventView.missingTitle")}</h1>
         <p className="lede">{t("EventView.missingDescription", { subdomain })}</p>
         <div className="actions">
-          <button className="primary" onClick={onBackHome}>
+          <button className="primary" onClick={onBackHome} data-testid="event-back-home">
             {t("EventView.backHome")}
           </button>
         </div>
@@ -165,7 +165,7 @@ export function EventView({ subdomain, baseDomain, onBackHome, onAdmin }: EventV
           {message}
         </p>
         <div className="actions">
-          <button className="primary" onClick={onBackHome}>
+          <button className="primary" onClick={onBackHome} data-testid="event-back-home">
             {t("EventView.backHome")}
           </button>
         </div>
@@ -195,14 +195,14 @@ export function EventView({ subdomain, baseDomain, onBackHome, onAdmin }: EventV
       ) : null}
       <div className="actions">
         {guestToken ? (
-          <button className="ghost" onClick={handleGuestLogout}>
+          <button className="ghost" onClick={handleGuestLogout} data-testid="event-logout">
             {t("EventView.logout")}
           </button>
         ) : null}
-        <button className="ghost" onClick={onAdmin}>
+        <button className="ghost" onClick={onAdmin} data-testid="event-admin-login">
           {t("EventView.adminLogin")}
         </button>
-        <button className="ghost" onClick={onBackHome}>
+        <button className="ghost" onClick={onBackHome} data-testid="event-back-home">
           {t("EventView.backHome")}
         </button>
       </div>
