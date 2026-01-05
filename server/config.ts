@@ -10,6 +10,7 @@ export type LogLevel = "silent" | "error" | "info" | "debug";
 const appConfigSchema = z.object({
   port: z.number().int().positive().default(8080),
   dataRootPath: z.string().min(1).default("/data/events"),
+  uploadTempPath: z.string().min(1).default("/data/uploads"),
   corsOrigin: z.string().default(""),
   jsonLimit: z.string().default("5mb"),
   uploadMaxFileSizeBytes: z.number().nonnegative().default(0),
@@ -85,6 +86,7 @@ const buildConfig = (fileConfig: Partial<AppConfig>, envConfig: Partial<AppConfi
 const envOverrides: Partial<AppConfig> = dropUndefined({
   port: parseNumberEnv(process.env.PORT),
   dataRootPath: parseStringEnv(process.env.DATA_ROOT_PATH),
+  uploadTempPath: parseStringEnv(process.env.UPLOAD_TEMP_PATH),
   corsOrigin: parseStringEnv(process.env.CORS_ORIGIN),
   jsonLimit: parseStringEnv(process.env.JSON_LIMIT),
   uploadMaxFileSizeBytes: parseNumberEnv(process.env.UPLOAD_MAX_FILE_SIZE_BYTES),
@@ -131,6 +133,7 @@ export const IS_PROD_ENV = (process.env.NODE_ENV || "").toLowerCase() == "produc
 export const DOMAIN = CONFIG.domain || "localhost";
 export const PORT = CONFIG.port;
 export const DATA_ROOT_PATH = CONFIG.dataRootPath;
+export const UPLOAD_TEMP_PATH = CONFIG.uploadTempPath;
 export const EVENT_REGEX = /^[-a-z0-9]+$/i;
 export const NOT_ALLOWED_EVENTNAMES_REGEX =
   /^(?!\b(admin|login|logout|api|docs|static|public|uploads)\b).+$/i;

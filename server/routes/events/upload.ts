@@ -1,8 +1,8 @@
 ﻿import multer from "multer";
-import { UPLOAD_MAX_FILE_SIZE_BYTES } from "../../config.js";
-import { ensureUploadsDir } from "../../services/files.js";
+import { UPLOAD_MAX_FILE_SIZE_BYTES, UPLOAD_TEMP_PATH } from "../../config.js";
 import { randomUUID } from "crypto";
 import fs from "node:fs";
+import path from "node:path";
 import { ValidatedReq } from "./validators.js";
 import { logger } from "../../logger.js";
 
@@ -10,7 +10,8 @@ const uploadStorage = multer.diskStorage({
   destination: (req, _file, cb) => {
     const eventId = (req.params as { eventId?: string }).eventId || "";
     try {
-      const target = ensureUploadsDir(eventId);
+      const target = path.join(UPLOAD_TEMP_PATH, eventId);
+      fs.mkdirSync(target, { recursive: true });
       cb(null, target);
     } catch (error) {
       cb(error as Error, "");

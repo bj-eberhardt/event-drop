@@ -1,9 +1,10 @@
 import path from "node:path";
-import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import fs from "node:fs";
 import bcrypt from "bcryptjs";
 import { DATA_ROOT_PATH } from "../config.js";
 import { EventConfig } from "../types.js";
+import { storage } from "../storage/index.js";
+import { StorageResult } from "../storage/types.js";
 
 export class EventAlreadyExistsError extends Error {
   constructor(eventId: string) {
@@ -11,9 +12,6 @@ export class EventAlreadyExistsError extends Error {
     this.name = "EventAlreadyExistsError";
   }
 }
-
-const projectPath = (eventFolderName: string) =>
-  path.join(DATA_ROOT_PATH, eventFolderName, "project.json");
 
 const normalizeProject = (config: EventConfig): EventConfig => ({
   ...config,
@@ -32,39 +30,32 @@ const normalizeProject = (config: EventConfig): EventConfig => ({
   },
 });
 
-export const ensureBaseDir = async () => {
-  await mkdir(DATA_ROOT_PATH, { recursive: true });
-};
-
-const isErrnoException = (error: unknown): error is NodeJS.ErrnoException =>
-  Boolean(error) && typeof error === "object" && "code" in (error as NodeJS.ErrnoException);
-
-export const isEventIdAvailable = async (eventId: string): Promise<boolean> => {
-  try {
-    await access(path.join(DATA_ROOT_PATH, eventId));
-    return false;
-  } catch (error: unknown) {
-    if (isErrnoException(error) && error.code === "ENOENT") return true;
-    throw error;
+const requireOk = <T>(result: StorageResult<T>): T => {
+  if (!result.ok) {
+    throw new Error(result.error.message);
   }
+  return result.data;
 };
+
+export const ensureBaseDir = async () => {
+  await storage.events.ensureBaseDir();
+};
+
+export const isEventIdAvailable = async (eventId: string): Promise<boolean> =>
+  requireOk(await storage.events.isEventIdAvailable(eventId));
 
 export const getEvent = async (eventId: string): Promise<EventConfig | null> => {
-  try {
-    const raw = await readFile(projectPath(eventId), "utf8");
-    return normalizeProject(JSON.parse(raw) as EventConfig);
-  } catch (error: unknown) {
-    if (isErrnoException(error) && error.code === "ENOENT") return null;
-    throw error;
+  const result = await storage.events.getEvent(eventId);
+  if (!result.ok) {
+    if (result.error.errorKey === "EVENT_NOT_FOUND") return null;
+    throw new Error(result.error.message);
   }
+  return normalizeProject(result.data);
 };
 
 export const saveEvent = async (project: EventConfig) => {
   const normalized = normalizeProject(project);
-  const partyDir = path.join(DATA_ROOT_PATH, project.eventId);
-  const uploadsDir = path.join(partyDir, "uploads");
-  await mkdir(uploadsDir, { recursive: true });
-  await writeFile(projectPath(project.eventId), JSON.stringify(normalized, null, 2), "utf8");
+  requireOk(await storage.events.saveEvent(normalized));
 };
 
 export const createEventConfig = async (params: {
@@ -115,23 +106,18 @@ export const createEvent = async (params: {
   allowGuestDownload?: boolean;
 }): Promise<EventConfig> => {
   const event = await createEventConfig(params);
-  const partyDir = path.join(DATA_ROOT_PATH, event.eventId);
-  try {
-    await mkdir(partyDir, { recursive: false });
-  } catch (error: unknown) {
-    if (isErrnoException(error) && error.code === "EEXIST") {
+  const result = await storage.events.createEvent(event);
+  if (!result.ok) {
+    if (result.error.errorKey === "EVENT_ID_TAKEN") {
       throw new EventAlreadyExistsError(event.eventId);
     }
-    throw error;
+    throw new Error(result.error.message);
   }
-
-  await saveEvent(event);
-  return event;
+  return result.data;
 };
 
 export const deleteEvent = async (eventId: string) => {
-  const dir = path.join(DATA_ROOT_PATH, eventId);
-  await rm(dir, { recursive: true, force: true });
+  requireOk(await storage.events.deleteEvent(eventId));
 };
 
 export const findUniqueName = (dir: string, originalName: string) => {

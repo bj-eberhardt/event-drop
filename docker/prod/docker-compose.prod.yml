@@ -24,6 +24,7 @@ services:
     environment:
       - PORT=8080
       - DATA_ROOT_PATH=/data/events
+      - UPLOAD_TEMP_PATH=/data/uploads
       - MAIN_DOMAIN=${MAIN_DOMAIN:-localhost}
       - ALLOWED_DOMAINS=${ALLOWED_DOMAINS:-localhost}
       - SUPPORT_SUBDOMAIN=${SUPPORT_SUBDOMAIN:-true}
@@ -33,6 +34,7 @@ services:
       - UPLOAD_MAX_TOTAL_SIZE_BYTES=${UPLOAD_MAX_TOTAL_SIZE_BYTES:-0}
     volumes:
       - ./data:/data/events
+      - event-uploads:/data/uploads
       - ./config:/config
       # - event-data:/data/events
     expose:
@@ -50,3 +52,4 @@ services:
 
 volumes:
   event-data:
+  event-uploads:
