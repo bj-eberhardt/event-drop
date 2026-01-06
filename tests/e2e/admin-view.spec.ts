@@ -363,9 +363,7 @@ test.describe("admin event view", () => {
       await expect(page.getByTestId("admin-view")).toBeVisible();
       await expect(page.getByTestId("filebrowser-admin")).toBeVisible();
       await expect(page.getByTestId("filebrowser-folders")).toBeVisible();
-      const folderButton = page
-        .getByTestId("filebrowser-folder")
-        .filter({ hasText: folderName });
+      const folderButton = page.getByTestId("filebrowser-folder").filter({ hasText: folderName });
       await expect(folderButton).toBeVisible();
       await folderButton.click();
       await expect(page.getByTestId("file-list")).toBeVisible();

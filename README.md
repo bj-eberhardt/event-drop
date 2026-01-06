@@ -7,6 +7,7 @@
 
 ## Table of contents
 
+- [Features](#features)
 - [Usage](#usage)
   - [Further configuration](#further-configuration)
 - [Configuration](#configuration)
@@ -18,6 +19,24 @@
   - [API (Backend)](#api-backend)
   - [E2E tests (Playwright)](#e2e-tests-playwright)
   - [Linting / Formatting](#linting--formatting)
+
+## Features
+
+EventDrop helps collect event media in one place without messy messaging threads or manual sharing.
+
+```mermaid
+flowchart LR
+  Guest[Guests upload files] --> Event[Event gallery]
+  Host[Host shares link] --> Guest
+  Event --> Admin[Admin manages files]
+```
+
+- Per-file upload queue with progress, retries on network errors, and cancel support.
+- Parallel uploads (limit 3) with auto-dismiss on success.
+- Admin + guest views with shareable upload link and optional guest password.
+- File browsing with previews, deletes, and ZIP download.
+- Subdomain or path-based routing (works with or without wildcard DNS).
+- Backend config endpoint + env-based configuration for easy deployment.
 
 ## Usage
 
