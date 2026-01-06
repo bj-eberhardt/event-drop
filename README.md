@@ -24,19 +24,18 @@
 
 EventDrop helps collect event media in one place without messy messaging threads or manual sharing.
 
-```mermaid
-flowchart LR
-  Guest[Guests upload files] --> Event[Event gallery]
-  Host[Host shares link] --> Guest
-  Event --> Admin[Admin manages files]
-```
+**Key features**:
 
-- Per-file upload queue with progress, retries on network errors, and cancel support.
-- Parallel uploads (limit 3) with auto-dismiss on success.
-- Admin + guest views with shareable upload link and optional guest password.
-- File browsing with previews, deletes, and ZIP download.
+- Easy event creation with custom name, description, and optional guest password to prevent public accessibility.
+- Drag & drop or file picker uploads (multiple files).
+- Admin can share a link with guests to upload files.
+- Admin can browse, preview, delete, and download all files as ZIP and also let guests download all resources (optional).
+
+**Hosting features**:
+
 - Subdomain or path-based routing (works with or without wildcard DNS).
 - Backend config endpoint + env-based configuration for easy deployment.
+- Easy to self-host via Docker.
 
 ## Usage
 
