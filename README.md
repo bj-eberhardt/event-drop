@@ -7,10 +7,18 @@
 
 ## 🧭 Table of contents
 
-- Features
-- Usage
-- Configuration
-- Development
+- [Features](#-features)
+- [Usage](#usage)
+  - [Further configuration](#further-configuration)
+- [Configuration](#configuration)
+- [Development](#development)
+  - [Requirements](#requirements)
+  - [Run locally (no Docker)](#run-locally-no-docker)
+  - [Docker - Development](#docker---development)
+  - [Docker - Production](#docker---production)
+- [API (Backend)](#api-backend)
+- [E2E tests (Playwright)](#e2e-tests-playwright)
+- [Linting / Formatting](#linting--formatting)
 
 ## ✨ Features
 
