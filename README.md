@@ -1,43 +1,42 @@
-﻿# EventDrop - Frontend + Backend
+# 🎉 EventDrop - Frontend + Backend
 
 ![logo.png](src/img/logo.png)
 
 > EventDrop is a web app for easy file uploads and sharing around events.
 > Guests can upload photos for a host, and everything gets collected and shared.
 
-## Table of contents
+## 🧭 Table of contents
 
-- [Features](#features)
-- [Usage](#usage)
-  - [Further configuration](#further-configuration)
-- [Configuration](#configuration)
-- [Development](#development)
-  - [Requirements](#requirements)
-  - [Run locally (no Docker)](#run-locally-no-docker)
-  - [Docker - Development](#docker---development)
-  - [Docker - Production](#docker---production)
-  - [API (Backend)](#api-backend)
-  - [E2E tests (Playwright)](#e2e-tests-playwright)
-  - [Linting / Formatting](#linting--formatting)
+- [Features](#-features)
+- [Usage](#-usage)
+- [Configuration](#-configuration)
+- [Development](#-development)
 
-## Features
+## ✨ Features
 
 EventDrop helps collect event media in one place without messy messaging threads or manual sharing.
 
-**Key features**:
+```mermaid
+flowchart LR
+  Host[Host creates event] --> Link[Share upload link]
+  Link --> Guests[Guests upload files]
+  Guests --> Gallery[Event gallery]
+  Gallery --> Admin[Admin manages files]
+```
 
-- Easy event creation with custom name, description, and optional guest password to prevent public accessibility.
-- Drag & drop or file picker uploads (multiple files).
-- Admin can share a link with guests to upload files.
-- Admin can browse, preview, delete, and download all files as ZIP and also let guests download all resources (optional).
+**🎯 Core flow**
 
-**Hosting features**:
+- Create events with optional guest password.
+- Guests upload via drag & drop or file picker.
+- Admins manage files (preview, delete, ZIP download).
+
+**⚙️ Hosting & deployment**
 
 - Subdomain or path-based routing (works with or without wildcard DNS).
 - Backend config endpoint + env-based configuration for easy deployment.
-- Easy to self-host via Docker.
+- Simple self-hosting via Docker.
 
-## Usage
+## 🚀 Usage
 
 Easiest is to use the complete stack via **Docker**.
 
@@ -67,9 +66,6 @@ services:
       - ./config:/config
     expose:
       - "8080"
-
-# Optional web config (nginx)
-# - RATE_LIMIT_ENABLED=1 # set to 1/0 to enable/disable nginx rate limits
 ```
 
 start the stack via:
@@ -80,11 +76,11 @@ docker compose up -d
 
 Access the app at `http://localhost:8080`.
 
-### Further configuration
+### 🧩 Further configuration
 
 You can use this behind your own reverse proxy, change ports, and configure limits via environment variables (see below).
 
-## Configuration
+## 🔧 Configuration
 
 You can either pass the following variables as environment variables or set them in the backend config file (`server.config.json`).
 
@@ -103,7 +99,7 @@ You can either pass the following variables as environment variables or set them
 - `AUTH_RATE_LIMIT_WINDOW_MS` - Window for counting failed auth attempts in ms (default: `60 seconds`).
 - `AUTH_RATE_LIMIT_BLOCK_MS` - Block duration after limit in ms (default: `5 minutes`).
 
-**Backend config file (`server.config.json`)**
+**📄 Backend config file (`server.config.json`)**
 
 - ENV variables override values in the config file, but are persisted on bootup.
 - Example:
@@ -128,14 +124,14 @@ You can either pass the following variables as environment variables or set them
 }
 ```
 
-## Development
+## 🧪 Development
 
-### Requirements
+### ✅ Requirements
 
 - Node.js 22.12+
 - optional Docker (for dev/prod containers)
 
-### Run locally (no Docker)
+### 💻 Run locally (no Docker)
 
 ```bash
 npm install
@@ -150,7 +146,7 @@ You can access them:
 - Frontend: http://localhost:5173
 - Backend: http://localhost:8080
 
-### Docker - Development
+### 🐳 Docker - Development
 
 Starts Vite + Express with hot reload and mounts a data volume for event folders.
 
@@ -172,7 +168,7 @@ Storage:
 
 Remote debugging on port 9229 (Node.js Inspector) is available in the API container.
 
-### Docker - Production
+### 🧱 Docker - Production
 
 Nginx serves the built frontend and proxies `/api` internally to the API container. Only one HTTP port is exposed externally.
 
@@ -185,11 +181,11 @@ The API is proxied under `/api/*`.
 
 More settings: [docker/prod/.env](docker/prod/.env).
 
-### API (Backend)
+### 📚 API (Backend)
 
 See Swagger docs at `/api/docs` (only if `ENABLE_API_DOCS=true`, default in dev).
 
-### E2E tests (Playwright)
+### 🧬 E2E tests (Playwright)
 
 Playwright supports both routing modes. The backend controls this via `SUPPORT_SUBDOMAIN` and the allowed hostnames via `ALLOWED_DOMAINS`.
 
@@ -225,7 +221,7 @@ If you already run the frontend/backend, set `E2E_START_SERVER=false` and point 
 E2E_START_SERVER=false E2E_BASE_URL=http://localhost:5173 E2E_MODE=subdomain npm run test:e2e
 ```
 
-### Linting / Formatting
+### 🧹 Linting / Formatting
 
 ```bash
 npm run lint
