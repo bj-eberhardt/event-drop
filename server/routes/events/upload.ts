@@ -34,10 +34,10 @@ export async function cleanupUploadedFiles(files: Express.Multer.File[]): Promis
   const uploads = Array.isArray(files) ? files : [];
   for (const file of uploads) {
     try {
-      const dest = file.destination;
-      if (typeof dest === "string" && dest) {
-        logger.debug("Cleanup uploaded temporary file: " + file.path);
-        await fs.promises.unlink(dest).catch(() => {});
+      const filePath = file.path;
+      if (typeof filePath === "string" && filePath) {
+        logger.debug("Cleanup uploaded temporary file: " + filePath);
+        await fs.promises.unlink(filePath).catch(() => {});
       }
     } catch {
       // ignore errors during cleanup

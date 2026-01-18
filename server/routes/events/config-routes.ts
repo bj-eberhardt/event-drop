@@ -14,6 +14,7 @@ import { ALLOW_EVENT_CREATION } from "../../config.js";
 import { loadEvent, verifyAccess } from "./middleware.js";
 import { eventIdSchema, validateRequest, ValidatedReq } from "./validators.js";
 import { ErrorResponse, EventConfigResponse } from "../../types.js";
+import { sendError } from "../../utils/error-response.js";
 
 export const registerConfigRoutes = (router: express.Router) => {
   router.get(
@@ -44,11 +45,10 @@ export const registerConfigRoutes = (router: express.Router) => {
     ) => {
       try {
         if (!ALLOW_EVENT_CREATION) {
-          return res.status(403).json({
+          return sendError(res, 403, {
             message: "Event creation is disabled.",
             errorKey: "EVENT_CREATION_DISABLED",
             property: "eventId",
-            additionalParams: {},
           });
         }
         const {
@@ -63,16 +63,15 @@ export const registerConfigRoutes = (router: express.Router) => {
         } = req.body;
 
         if (adminPassword !== adminPasswordConfirm) {
-          return res.status(400).json({
+          return sendError(res, 400, {
             message: "Admin passwords must match.",
             errorKey: "INVALID_INPUT",
             property: "adminPasswordConfirm",
-            additionalParams: {},
           });
         }
 
         if (guestPassword && guestPassword.length < 4) {
-          return res.status(400).json({
+          return sendError(res, 400, {
             message: "Guest password must be at least 4 characters.",
             errorKey: "INVALID_INPUT",
             property: "guestPassword",
@@ -83,20 +82,18 @@ export const registerConfigRoutes = (router: express.Router) => {
         const existing = await getEvent(eventId);
         const available = await isEventIdAvailable(eventId);
         if (existing || !available) {
-          return res.status(409).json({
+          return sendError(res, 409, {
             message: "Event ID is already taken.",
             errorKey: "EVENT_ID_TAKEN",
             property: "eventId",
-            additionalParams: {},
           });
         }
 
         if (allowGuestDownload && (!guestPassword || guestPassword.length < 4)) {
-          return res.status(400).json({
+          return sendError(res, 400, {
             message: "Guest downloads require a set guest password.",
             errorKey: "INVALID_INPUT",
             property: "allowGuestDownload",
-            additionalParams: {},
           });
         }
 
@@ -113,11 +110,10 @@ export const registerConfigRoutes = (router: express.Router) => {
         return res.status(200).json(buildEventResponse(event));
       } catch (error) {
         if (error instanceof EventAlreadyExistsError) {
-          return res.status(409).json({
+          return sendError(res, 409, {
             message: "Event ID is already taken.",
             errorKey: "EVENT_ID_TAKEN",
             property: "eventId",
-            additionalParams: {},
           });
         }
         next(error);
@@ -164,11 +160,10 @@ export const registerConfigRoutes = (router: express.Router) => {
 
         if (allowGuestDownload !== undefined) {
           if (allowGuestDownload && !updated.auth.guestPasswordHash) {
-            return res.status(400).json({
+            return sendError(res, 400, {
               message: "Guest downloads require a set guest password.",
               errorKey: "INVALID_INPUT",
               property: "allowGuestDownload",
-              additionalParams: {},
             });
           }
           updated.settings.allowGuestDownload = Boolean(allowGuestDownload);

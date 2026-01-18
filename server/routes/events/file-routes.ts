@@ -14,6 +14,7 @@ import {
 } from "./validators.js";
 import { DeleteFileResult, ErrorResponse, FileEntry } from "../../types.js";
 import { sendStorageError } from "./storage-response.js";
+import { sendError } from "../../utils/error-response.js";
 
 export const registerFileRoutes = (router: express.Router) => {
   router.get(
@@ -32,11 +33,10 @@ export const registerFileRoutes = (router: express.Router) => {
       try {
         const folder = parseFolder((req.query.folder as string) || "");
         if (folder === null) {
-          return res.status(400).json({
+          return sendError(res, 400, {
             message: "Invalid folder name.",
             errorKey: "INVALID_FOLDER",
             property: "folder",
-            additionalParams: {},
           });
         }
 
@@ -126,11 +126,10 @@ export const registerFileRoutes = (router: express.Router) => {
       try {
         const folder = parseFolder(req.body.from || "");
         if (folder === null) {
-          return res.status(400).json({
+          return sendError(res, 400, {
             message: "Invalid folder name.",
             errorKey: "INVALID_FOLDER",
             property: "from",
-            additionalParams: {},
           });
         }
 
@@ -200,21 +199,19 @@ export const registerFileRoutes = (router: express.Router) => {
       try {
         const folder = parseFolder((req.query.folder as string) || "");
         if (folder === null) {
-          return res.status(400).json({
+          return sendError(res, 400, {
             message: "Invalid folder name.",
             errorKey: "INVALID_FOLDER",
             property: "folder",
-            additionalParams: {},
           });
         }
 
         const filename = req.params.filename || "";
         if (!isSafeFilename(filename)) {
-          return res.status(400).json({
+          return sendError(res, 400, {
             message: "Invalid file name.",
             errorKey: "INVALID_FILENAME",
             property: "filename",
-            additionalParams: {},
           });
         }
 
@@ -262,21 +259,19 @@ export const registerFileRoutes = (router: express.Router) => {
       try {
         const folder = parseFolder(req.params.folder || "");
         if (!folder) {
-          return res.status(400).json({
+          return sendError(res, 400, {
             message: "Invalid folder name.",
             errorKey: "INVALID_FOLDER",
             property: "folder",
-            additionalParams: {},
           });
         }
 
         const filename = req.params.filename || "";
         if (!isSafeFilename(filename)) {
-          return res.status(400).json({
+          return sendError(res, 400, {
             message: "Invalid file name.",
             errorKey: "INVALID_FILENAME",
             property: "filename",
-            additionalParams: {},
           });
         }
 
@@ -320,21 +315,19 @@ export const registerFileRoutes = (router: express.Router) => {
       try {
         const folder = parseFolder(req.params.folder || "");
         if (!folder) {
-          return res.status(400).json({
+          return sendError(res, 400, {
             message: "Invalid folder name.",
             errorKey: "INVALID_FOLDER",
             property: "folder",
-            additionalParams: {},
           });
         }
 
         const filename = req.params.filename || "";
         if (filename.includes("..")) {
-          return res.status(400).json({
+          return sendError(res, 400, {
             message: "Invalid file name.",
             errorKey: "INVALID_FILENAME",
             property: "filename",
-            additionalParams: {},
           });
         }
 
@@ -373,21 +366,19 @@ export const registerFileRoutes = (router: express.Router) => {
       try {
         const folder = parseFolder((req.query.folder as string) || "");
         if (folder === null) {
-          return res.status(400).json({
+          return sendError(res, 400, {
             message: "Invalid folder name.",
             errorKey: "INVALID_FOLDER",
             property: "folder",
-            additionalParams: {},
           });
         }
 
         const filename = req.params.filename || "";
         if (filename.includes("..")) {
-          return res.status(400).json({
+          return sendError(res, 400, {
             message: "Invalid file name.",
             errorKey: "INVALID_FILENAME",
             property: "filename",
-            additionalParams: {},
           });
         }
 
@@ -420,11 +411,10 @@ export const registerFileRoutes = (router: express.Router) => {
       try {
         const folder = parseFolder((req.query.folder as string) || "");
         if (folder === null) {
-          return res.status(400).json({
+          return sendError(res, 400, {
             message: "Invalid folder name.",
             errorKey: "INVALID_FOLDER",
             property: "folder",
-            additionalParams: {},
           });
         }
 

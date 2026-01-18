@@ -18,8 +18,8 @@ export const parseBasicAuth = (req: Request): AuthCredentials => {
 
   try {
     const decoded = Buffer.from(token, "base64").toString("utf8");
-    const [user, password] = decoded.split(":");
-    return { user: user || "", password: password || "" };
+    const [user, ...rest] = decoded.split(":");
+    return { user: user || "", password: rest.join(":") || "" };
   } catch (error) {
     logger.debug("Failed to decode basic auth header", { path: req.path, error });
     return { user: "", password: "" };

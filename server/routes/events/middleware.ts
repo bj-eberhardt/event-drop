@@ -10,6 +10,7 @@ import { getEvent } from "../../services/events.js";
 import { ErrorResponse, EventConfig } from "../../types.js";
 import { DOMAIN } from "../../config.js";
 import { isAuthBlocked, recordAuthFailure } from "../../services/auth-rate-limit.js";
+import { sendError } from "../../utils/error-response.js";
 
 declare module "express-serve-static-core" {
   interface Request {
@@ -25,10 +26,8 @@ export const loadEvent: EventRequest = async (req, res, next) => {
     const eventId = req.params.eventId;
     const event = eventId ? await getEvent(eventId) : null;
     if (!event) {
-      return res
-        .status(404)
-        .header("X-Domain", DOMAIN)
-        .json({ message: "Event not found.", errorKey: "EVENT_NOT_FOUND", additionalParams: {} });
+      res.header("X-Domain", DOMAIN);
+      return sendError(res, 404, { message: "Event not found.", errorKey: "EVENT_NOT_FOUND" });
     }
     req.event = event;
     next();
@@ -44,10 +43,9 @@ export const verifyAccess = (
     try {
       const event = req.event;
       if (!event) {
-        return res.status(500).json({
+        return sendError(res, 500, {
           message: "Event context missing.",
           errorKey: "EVENT_CONTEXT_MISSING",
-          additionalParams: {},
         });
       }
 
@@ -57,7 +55,7 @@ export const verifyAccess = (
         const blocked = isAuthBlocked(req, event.eventId, credentials.user);
         if (blocked.blocked) {
           res.setHeader("Retry-After", String(blocked.retryAfter));
-          return res.status(429).json({
+          return sendError(res, 429, {
             message: "Too many failed authentication attempts. Please wait and try again.",
             errorKey: "RATE_LIMITED",
             eventId: event.eventId,
@@ -77,11 +75,10 @@ export const verifyAccess = (
           if (hasAuthHeader) {
             recordAuthFailure(req, event.eventId, "admin");
           }
-          return res.status(401).json({
+          return sendError(res, 401, {
             message: "Authorization required.",
             errorKey: "AUTHORIZATION_REQUIRED",
             eventId: event.eventId,
-            additionalParams: {},
           });
         }
       }
@@ -94,11 +91,10 @@ export const verifyAccess = (
       }
 
       if (!credentials.user || !credentials.password) {
-        return res.status(401).json({
+        return sendError(res, 401, {
           message: "Authorization required.",
           errorKey: "AUTHORIZATION_REQUIRED",
           eventId: event.eventId,
-          additionalParams: {},
         });
       }
 
@@ -106,11 +102,10 @@ export const verifyAccess = (
         recordAuthFailure(req, event.eventId, credentials.user);
       }
 
-      return res.status(403).json({
+      return sendError(res, 403, {
         message: "Authorization required.",
         errorKey: "AUTHORIZATION_REQUIRED",
         eventId: event.eventId,
-        additionalParams: {},
       });
     } catch (error) {
       next(error);
@@ -125,10 +120,9 @@ export const ensureGuestDownloadsEnabled: RequestHandler<{ eventId?: string }, E
 ) => {
   const event = req.event;
   if (!event) {
-    return res.status(500).json({
+    return sendError(res, 500, {
       message: "Event context missing.",
       errorKey: "EVENT_CONTEXT_MISSING",
-      additionalParams: {},
     });
   }
 
@@ -136,11 +130,10 @@ export const ensureGuestDownloadsEnabled: RequestHandler<{ eventId?: string }, E
     const guestDownloadsEnabled =
       event.settings.allowGuestDownload && Boolean(event.auth.guestPasswordHash);
     if (!guestDownloadsEnabled) {
-      return res.status(403).json({
+      return sendError(res, 403, {
         message: "Guest downloads require a set guest password.",
         errorKey: "GUEST_DOWNLOADS_DISABLED",
         eventId: event.eventId,
-        additionalParams: {},
       });
     }
   }

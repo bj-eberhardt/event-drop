@@ -5,8 +5,8 @@ type LevelName = "error" | "warn" | "info" | "debug";
 const levelWeights: Record<LevelName, number> = {
   error: 0,
   warn: 1,
-  info: 1,
-  debug: 2,
+  info: 2,
+  debug: 3,
 };
 
 const activeWeight =
