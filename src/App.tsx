@@ -11,7 +11,7 @@ import { ApiClient } from "./api/client";
 import { useAppConfigStore } from "./lib/appConfigStore";
 import { getDomainMatchFromHost, matchAllowedDomain } from "./lib/domain";
 import { resolveRoute } from "./lib/routing";
-import { AppFooter } from "./shared/components/AppFooter";
+import { HomeFooter } from "./features/home/components/HomeFooter";
 
 export default function App() {
   const { t } = useTranslation();
@@ -192,7 +192,7 @@ export default function App() {
           )
         ) : null}
       </div>
-      {route === "home" ? <AppFooter /> : null}
+      {route === "home" ? <HomeFooter /> : null}
     </>
   );
 }
