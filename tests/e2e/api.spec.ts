@@ -842,6 +842,246 @@ test.describe("GET /api/events/{eventId}/files", () => {
   });
 });
 
+test.describe("PATCH /api/events/{eventId}/folders/{folder}", () => {
+  test("renames folder and preserves other folders", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+    const sourceFolder = "album-a";
+    const targetFolder = "album-renamed";
+    const otherFolder = "album-b";
+    const firstContent = "alpha";
+    const secondContent = "bravo";
+    const otherContent = "charlie";
+
+    await test.step("upload files into folders", async () => {
+      await uploadFile(
+        request,
+        apiBase,
+        payload.eventId as string,
+        { user: "guest", password: payload.guestPassword as string },
+        { name: "a.txt", mimeType: "text/plain", content: firstContent },
+        sourceFolder
+      );
+      await uploadFile(
+        request,
+        apiBase,
+        payload.eventId as string,
+        { user: "guest", password: payload.guestPassword as string },
+        { name: "b.txt", mimeType: "text/plain", content: secondContent },
+        sourceFolder
+      );
+      await uploadFile(
+        request,
+        apiBase,
+        payload.eventId as string,
+        { user: "guest", password: payload.guestPassword as string },
+        { name: "c.txt", mimeType: "text/plain", content: otherContent },
+        otherFolder
+      );
+    });
+
+    await test.step("rename folder", async () => {
+      const response = await request.patch(
+        `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/folders/${encodeURIComponent(sourceFolder)}`,
+        {
+          headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }),
+          data: { to: targetFolder },
+        }
+      );
+      expect(response.status()).toBe(200);
+      const body = await response.json();
+      expectExactKeys(body, ["success"]);
+      expect(body.success).toBe(true);
+    });
+
+    await test.step("list root folders", async () => {
+      const response = await request.get(
+        `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files`,
+        { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+      );
+      expect(response.status()).toBe(200);
+      const body = await response.json();
+      expectExactKeys(body, ["files", "folders", "folder"]);
+      expect(body.folder).toBe("");
+      expect(Array.isArray(body.files)).toBe(true);
+      expect(body.files).toHaveLength(0);
+      expect(body.folders.sort()).toEqual([otherFolder, targetFolder].sort());
+    });
+
+    await test.step("list renamed folder files", async () => {
+      const response = await request.get(
+        `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files?folder=${encodeURIComponent(targetFolder)}`,
+        { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+      );
+      expect(response.status()).toBe(200);
+      const body = await response.json();
+      expectExactKeys(body, ["files", "folders", "folder"]);
+      expect(body.folder).toBe(targetFolder);
+      expect(body.folders).toEqual([]);
+      const files = (body.files as Array<Record<string, unknown>>).map((entry) => ({
+        name: entry.name as string,
+        size: entry.size as number,
+      }));
+      expect(files.sort((a, b) => a.name.localeCompare(b.name))).toEqual([
+        { name: "a.txt", size: Buffer.byteLength(firstContent) },
+        { name: "b.txt", size: Buffer.byteLength(secondContent) },
+      ]);
+    });
+
+    await test.step("list other folder files", async () => {
+      const response = await request.get(
+        `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files?folder=${encodeURIComponent(otherFolder)}`,
+        { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
+      );
+      expect(response.status()).toBe(200);
+      const body = await response.json();
+      expectExactKeys(body, ["files", "folders", "folder"]);
+      expect(body.folder).toBe(otherFolder);
+      const files = (body.files as Array<Record<string, unknown>>).map((entry) => ({
+        name: entry.name as string,
+        size: entry.size as number,
+      }));
+      expect(files).toEqual([{ name: "c.txt", size: Buffer.byteLength(otherContent) }]);
+    });
+  });
+
+  test("rejects when target folder already exists", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+    const sourceFolder = "album-source";
+    const targetFolder = "album-existing";
+
+    await test.step("upload files into source and target", async () => {
+      await uploadFile(
+        request,
+        apiBase,
+        payload.eventId as string,
+        { user: "guest", password: payload.guestPassword as string },
+        { name: "source.txt", mimeType: "text/plain", content: "source" },
+        sourceFolder
+      );
+      await uploadFile(
+        request,
+        apiBase,
+        payload.eventId as string,
+        { user: "guest", password: payload.guestPassword as string },
+        { name: "target.txt", mimeType: "text/plain", content: "target" },
+        targetFolder
+      );
+    });
+
+    await test.step("attempt rename to existing folder", async () => {
+      const response = await request.patch(
+        `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/folders/${encodeURIComponent(sourceFolder)}`,
+        {
+          headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }),
+          data: { to: targetFolder },
+        }
+      );
+      expect(response.status()).toBe(409);
+      const body = await response.json();
+      expect(body.errorKey).toBe("FOLDER_ALREADY_EXISTS");
+      expect(body.property).toBe("to");
+    });
+  });
+
+  test("rejects invalid body", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.patch(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/folders/album-a`,
+      {
+        headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }),
+        data: { to: "bad/" },
+      }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_FOLDER");
+  });
+
+  test("rejects invalid folder path", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.patch(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/folders/bad!`,
+      {
+        headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }),
+        data: { to: "good-folder" },
+      }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_FOLDER");
+  });
+
+  test("rejects invalid event id", async ({ request }, testInfo) => {
+    const apiBase = getApiBaseUrl(testInfo.project.use.baseURL as string | undefined);
+
+    const response = await request.patch(`${apiBase}/api/events/bad_/folders/album-a`, {
+      headers: toAuthHeader({ user: "admin", password: "adminpass123" }),
+      data: { to: "album-b" },
+    });
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_EVENT_ID");
+  });
+
+  test("returns not found for missing event", async ({ request }, testInfo) => {
+    const apiBase = getApiBaseUrl(testInfo.project.use.baseURL as string | undefined);
+
+    const response = await request.patch(
+      `${apiBase}/api/events/${encodeURIComponent(getUniqueEventId("missing"))}/folders/album-a`,
+      {
+        headers: toAuthHeader({ user: "admin", password: "adminpass123" }),
+        data: { to: "album-b" },
+      }
+    );
+    expect(response.status()).toBe(404);
+    const body = await response.json();
+    expect(body.errorKey).toBe("EVENT_NOT_FOUND");
+  });
+
+  test("rejects missing auth", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.patch(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/folders/album-a`,
+      {
+        data: { to: "album-b" },
+      }
+    );
+    expect(response.status()).toBe(401);
+    const body = await response.json();
+    expect(body.errorKey).toBe("AUTHORIZATION_REQUIRED");
+  });
+
+  test("rejects guest auth", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.patch(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/folders/album-a`,
+      {
+        headers: toAuthHeader({ user: "guest", password: payload.guestPassword as string }),
+        data: { to: "album-b" },
+      }
+    );
+    expect(response.status()).toBe(403);
+    const body = await response.json();
+    expect(body.errorKey).toBe("AUTHORIZATION_REQUIRED");
+  });
+});
+
 test.describe("POST /api/events/{eventId}/files", () => {
   test("uploads files with guest auth", async ({ request }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;

@@ -80,6 +80,11 @@ export interface FileStore {
     folder: string,
     filename: string
   ): Promise<StorageResult<DeleteFileResult>>;
+  renameFolder(
+    eventId: string,
+    from: string,
+    to: string
+  ): Promise<StorageResult<{ success: true }>>;
   createZipStream(eventId: string, folder?: string | null): Promise<StorageResult<ZipStreamData>>;
   ensureFilesDir(eventId: string): string;
 }

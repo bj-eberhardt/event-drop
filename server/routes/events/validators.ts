@@ -93,10 +93,17 @@ export const eventFileParamsSchema = eventIdSchema.extend({
 export const eventFileInFolderParamsSchema = eventFileParamsSchema.extend({
   folder: z.string().trim().regex(FOLDER_REGEX, { message: "Invalid folder name." }),
 });
+export const eventFolderParamsSchema = eventIdSchema.extend({
+  folder: z.string().trim().regex(FOLDER_REGEX, { message: "Invalid folder name." }),
+});
 export const uploadFilesBodySchema = z.object({
   from: z.string().trim().regex(FOLDER_REGEX, { message: "Invalid folder name." }).optional(),
 });
 export type UploadFilesBody = z.infer<typeof uploadFilesBodySchema>;
+
+export const renameFolderBodySchema = z.object({
+  to: z.string().trim().regex(FOLDER_REGEX, { message: "Invalid folder name." }),
+});
 
 export const previewQuerySchema = z.object({
   w: z.coerce.number().int().positive().max(MAX_PREVIEW_SIZE).optional(),

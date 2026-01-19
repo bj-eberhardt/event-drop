@@ -7,3 +7,4 @@ export { FolderIcon } from "./FolderIcon";
 export { EditIcon } from "./EditIcon";
 export { LogoutIcon } from "./LogoutIcon";
 export { ArchiveIcon } from "./ArchiveIcon";
+export { RenameIcon } from "./RenameIcon";

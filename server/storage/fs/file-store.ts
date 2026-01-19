@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
-import { copyFile, mkdir, readdir, stat, unlink, readFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, stat, unlink, readFile, rename } from "node:fs/promises";
 import archiver from "archiver";
 import { DATA_ROOT_PATH } from "../../config.js";
 import { FILES_DIR_NAME } from "../../constants.js";
@@ -180,12 +180,84 @@ export const createFsFileStore = (): FileStore => {
     return target;
   };
 
+  const renameFolder = async (
+    eventId: string,
+    from: string,
+    to: string
+  ): Promise<StorageResult<{ success: true }>> => {
+    const fromPath = filesDir(eventId, from);
+    const toPath = filesDir(eventId, to);
+
+    try {
+      const stats = await stat(fromPath);
+      if (!stats.isDirectory()) {
+        return fail(
+          createStorageError({
+            message: "Folder not found.",
+            errorKey: "FILE_NOT_FOUND",
+            property: "folder",
+          })
+        );
+      }
+    } catch (error: unknown) {
+      if (isErrnoException(error) && error.code === "ENOENT") {
+        return fail(
+          createStorageError({
+            message: "Folder not found.",
+            errorKey: "FILE_NOT_FOUND",
+            property: "folder",
+          })
+        );
+      }
+      throw error;
+    }
+
+    try {
+      await rename(fromPath, toPath);
+    } catch (error: unknown) {
+      if (isErrnoException(error)) {
+        if (error.code === "EEXIST" || error.code === "ENOTEMPTY") {
+          return fail(
+            createStorageError({
+              message: "Folder already exists.",
+              errorKey: "FOLDER_ALREADY_EXISTS",
+              property: "to",
+            })
+          );
+        }
+        if (error.code === "EPERM") {
+          try {
+            const targetStats = await stat(toPath);
+            if (targetStats.isDirectory()) {
+              return fail(
+                createStorageError({
+                  message: "Folder already exists.",
+                  errorKey: "FOLDER_ALREADY_EXISTS",
+                  property: "to",
+                })
+              );
+            }
+          } catch (statError: unknown) {
+            if (isErrnoException(statError) && statError.code === "ENOENT") {
+              throw error;
+            }
+            throw statError;
+          }
+        }
+      }
+      throw error;
+    }
+
+    return ok({ success: true });
+  };
+
   return {
     listFiles,
     moveUploadedFiles,
     getFileStream,
     getFileBuffer,
     deleteFile,
+    renameFolder,
     createZipStream,
     ensureFilesDir,
   };

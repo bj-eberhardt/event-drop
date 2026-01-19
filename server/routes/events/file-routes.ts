@@ -7,7 +7,9 @@ import { upload, cleanupUploadedFilesFromRequest, cleanupUploadedFiles } from ".
 import {
   eventFileInFolderParamsSchema,
   eventFileParamsSchema,
+  eventFolderParamsSchema,
   eventIdSchema,
+  renameFolderBodySchema,
   uploadFilesBodySchema,
   validateRequest,
   ValidatedReq,
@@ -172,6 +174,51 @@ export const registerFileRoutes = (router: express.Router) => {
     },
     // route-level error handler: cleans up uploaded files and forwards the error
     ensureFileUploadsClearedOnError
+  );
+
+  router.patch(
+    "/:eventId/folders/:folder",
+    validateRequest(
+      {
+        params: eventFolderParamsSchema,
+        body: renameFolderBodySchema,
+      },
+      {
+        errorKey: ({ part, issue, defaultKey }) => {
+          const field = issue.path[0];
+          if (part === "params") {
+            if (field === "eventId") return "INVALID_EVENT_ID";
+            if (field === "folder") return "INVALID_FOLDER";
+          }
+          if (part === "body" && field === "to") return "INVALID_FOLDER";
+          return defaultKey;
+        },
+      }
+    ),
+    loadEvent,
+    verifyAccess(["admin"]),
+    async (
+      req: ValidatedReq<{
+        params: typeof eventFolderParamsSchema;
+        body: typeof renameFolderBodySchema;
+      }>,
+      res: Response<{ success: true } | ErrorResponse>,
+      next: NextFunction
+    ) => {
+      try {
+        const folder = req.params.folder;
+        const to = req.body.to;
+
+        const renameResult = await storage.files.renameFolder(req.params.eventId, folder, to);
+        if (!renameResult.ok) {
+          return sendStorageError(res, renameResult.error);
+        }
+
+        return res.status(200).json(renameResult.data);
+      } catch (error) {
+        next(error);
+      }
+    }
   );
 
   router.get(

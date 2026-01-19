@@ -396,6 +396,105 @@ test.describe("admin event view", () => {
     });
   });
 
+  test("admin can rename folders and sees validation/conflict", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    testInfo.skip(!baseURL, "baseURL required");
+
+    const eventId = getUniqueEventId("e2e-rename-admin");
+    const adminPassword = "adminpass123";
+    const mode = getMode();
+    const adminUrl = buildEventUrl(baseURL, mode, eventId, true);
+
+    try {
+      await test.step("create event and upload files into folders", async () => {
+        await createEvent(
+          request,
+          {
+            name: "Admin Rename Event",
+            description: "",
+            eventId,
+            guestPassword: "1234",
+            adminPassword,
+            adminPasswordConfirm: adminPassword,
+            allowedMimeTypes: [],
+          },
+          baseURL
+        );
+
+        await uploadFile(
+          request,
+          eventId,
+          { name: "a.txt", mimeType: "text/plain", content: "file a" },
+          baseURL,
+          { type: "admin", password: adminPassword },
+          "a"
+        );
+
+        await uploadFile(
+          request,
+          eventId,
+          { name: "b.txt", mimeType: "text/plain", content: "file b" },
+          baseURL,
+          { type: "admin", password: adminPassword },
+          "b"
+        );
+      });
+
+      await test.step("open admin view and verify rename button", async () => {
+        await page.goto(adminUrl);
+        await loginIfPrompted(page, adminPassword);
+        await expect(page.getByTestId("filebrowser-admin")).toBeVisible();
+        const folderA = page.getByTestId("filebrowser-folder").filter({ hasText: "a" });
+        await expect(folderA).toBeVisible();
+        await expect(folderA.getByTestId("filebrowser-folder-rename")).toBeVisible();
+      });
+
+      await test.step("attempt rename a -> b and verify conflict", async () => {
+        const folderA = page.getByTestId("filebrowser-folder").filter({ hasText: "a" });
+        await folderA.getByTestId("filebrowser-folder-rename").click();
+        await expect(page.getByTestId("modal")).toBeVisible();
+
+        const input = page.getByTestId("rename-folder-input");
+        await input.fill("b");
+        await page.getByTestId("rename-folder-confirm").click();
+        await expect(page.getByText(/ordnername existiert bereits/i)).toBeVisible();
+      });
+
+      await test.step("cancel rename dialog", async () => {
+        await page.getByTestId("rename-folder-cancel").click();
+        await expect(page.getByTestId("modal")).toHaveCount(0);
+      });
+
+      await test.step("validate rename input and rename b -> c", async () => {
+        const folderB = page.getByTestId("filebrowser-folder").filter({ hasText: "b" });
+        await folderB.getByTestId("filebrowser-folder-rename").click();
+        await expect(page.getByTestId("modal")).toBeVisible();
+
+        const input = page.getByTestId("rename-folder-input");
+        await input.fill("bad/");
+        await input.blur();
+        await expect(page.getByTestId("rename-folder-error")).toBeVisible();
+
+        await input.fill("c");
+        await page.getByTestId("rename-folder-confirm").click();
+        await expect(page.getByTestId("modal")).toHaveCount(0);
+        await expect(page.getByTestId("filebrowser-folder").filter({ hasText: "c" })).toBeVisible();
+      });
+
+      await test.step("open renamed folder and verify file", async () => {
+        const folderC = page.getByTestId("filebrowser-folder").filter({ hasText: "c" });
+        await folderC.click();
+        await expect(page.getByTestId("file-list")).toBeVisible();
+        await expect(page.getByTestId("file-row").filter({ hasText: "b.txt" })).toBeVisible();
+      });
+    } finally {
+      await cleanupEvent(request, eventId, adminPassword, baseURL);
+    }
+  });
+
   test("logout redirects and requires password on return", async ({
     page,
     adminEvent,

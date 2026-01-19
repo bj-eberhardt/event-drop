@@ -3,7 +3,7 @@ import { ApiClient } from "../../../api/client";
 import { formatFileSize } from "../../../lib/format";
 import { useUpload } from "../hooks/useUpload";
 import { UploadQueue } from "./UploadQueue";
-import { FOLDER_REGEX } from "../../../constants";
+import { FOLDER_PATTERN, isOptionalFolderNameValid } from "../../../lib/folderValidation";
 
 type UploadFormProps = {
   eventId: string;
@@ -53,8 +53,7 @@ export function UploadForm({
     uploadMaxFileSizeBytes > 0 && selectionStats.maxBytes > uploadMaxFileSizeBytes;
   const totalSizeExceeded =
     uploadMaxTotalSizeBytes > 0 && selectionStats.totalBytes > uploadMaxTotalSizeBytes;
-  const trimmedFromName = fromName.trim();
-  const isFromNameValid = trimmedFromName.length === 0 || FOLDER_REGEX.test(trimmedFromName);
+  const isFromNameValid = isOptionalFolderNameValid(fromName);
   const statusHintParts: string[] = [];
   if (maxSizeExceeded) statusHintParts.push(t("UploadForm.singleLimitExceeded"));
   if (totalSizeExceeded) statusHintParts.push(t("UploadForm.totalLimitExceeded"));
@@ -76,7 +75,7 @@ export function UploadForm({
         <input
           type="text"
           placeholder={t("UploadForm.fromPlaceholder")}
-          pattern="[A-Za-z0-9 -]+"
+          pattern={FOLDER_PATTERN}
           maxLength={32}
           value={fromName}
           onChange={(event) => setFromName(event.target.value)}
