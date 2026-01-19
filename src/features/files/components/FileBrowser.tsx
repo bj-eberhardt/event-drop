@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useFileBrowser } from "../hooks/useFileBrowser";
 import { FileList } from "./FileList";
-import { ArchiveIcon, FolderIcon } from "../../../components/ui/icons";
+import { ArchiveIcon, FolderIcon, RenameIcon } from "../../../components/ui/icons";
 
 type FileBrowserMode = "admin" | "guest";
 
@@ -27,10 +27,13 @@ export function FileBrowser({ eventId, mode }: FileBrowserProps) {
     downloadFile,
     downloadZip,
     requestDelete,
+    openRename,
     previewModal,
     deleteDialog,
+    renameDialog,
   } = useFileBrowser({ eventId, mode });
   const canDelete = mode === "admin";
+  const canRename = mode === "admin";
 
   return (
     <div className="form-card" data-testid={`filebrowser-${mode}`}>
@@ -87,19 +90,33 @@ export function FileBrowser({ eventId, mode }: FileBrowserProps) {
       {folders.length > 0 ? (
         <div className="folder-grid" data-testid="filebrowser-folders">
           {folders.map((folder) => (
-            <button
-              key={folder}
-              className="folder-tile"
-              type="button"
-              onClick={() => {
-                fetchFiles(folder, { pushHistory: true });
-              }}
-              disabled={isLoading}
-              title={folder}
-              data-testid="filebrowser-folder"
-            >
-              <FolderIcon /> {folder}
-            </button>
+            <div key={folder} className="folder-tile" data-testid="filebrowser-folder">
+              <button
+                className="folder-tile-button"
+                type="button"
+                onClick={() => {
+                  fetchFiles(folder, { pushHistory: true });
+                }}
+                disabled={isLoading}
+                title={folder}
+              >
+                <FolderIcon />
+                <span className="folder-tile-name">{folder}</span>
+              </button>
+              {canRename ? (
+                <button
+                  className="icon-btn folder-rename-btn"
+                  type="button"
+                  onClick={() => openRename(folder)}
+                  disabled={isLoading}
+                  title={t("FileBrowser.renameAction")}
+                  aria-label={t("FileBrowser.renameAction")}
+                  data-testid="filebrowser-folder-rename"
+                >
+                  <RenameIcon />
+                </button>
+              ) : null}
+            </div>
           ))}
         </div>
       ) : null}
@@ -123,6 +140,7 @@ export function FileBrowser({ eventId, mode }: FileBrowserProps) {
       ) : null}
       {previewModal}
       {deleteDialog}
+      {renameDialog}
     </div>
   );
 }

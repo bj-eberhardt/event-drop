@@ -120,6 +120,15 @@ export interface DeleteFileResponse {
   message: string;
 }
 
+export interface RenameFolderRequest {
+  folder: string;
+  to: string;
+}
+
+export interface RenameFolderResponse {
+  success: boolean;
+}
+
 export interface AppConfigResponse {
   allowedDomains: string[];
   supportSubdomain: boolean;

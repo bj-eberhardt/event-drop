@@ -17,6 +17,8 @@ import type {
   UploadFilesRequest,
   UploadFilesResponse,
   AppConfigResponse,
+  RenameFolderRequest,
+  RenameFolderResponse,
 } from "./types";
 
 /**
@@ -361,6 +363,26 @@ export class ApiClient {
     );
 
     return this.handleResponse<DeleteFileResponse>(response);
+  }
+
+  /**
+   * Rename a folder in the event
+   * Requires admin access
+   */
+  async renameFolder(eventId: string, request: RenameFolderRequest): Promise<RenameFolderResponse> {
+    const response = await fetch(
+      `${apiBase}/api/events/${encodeURIComponent(eventId)}/folders/${encodeURIComponent(request.folder)}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...this.getAuthHeader(),
+        },
+        body: JSON.stringify({ to: request.to }),
+      }
+    );
+
+    return this.handleResponse<RenameFolderResponse>(response);
   }
 
   /**

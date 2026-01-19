@@ -8,6 +8,8 @@ import { buildFolderPath, FileBrowserMode, getFolderFromLocation } from "../../.
 import { DeleteFileDialog } from "../components/DeleteFileDialog";
 import { useFilePreview } from "./useFilePreview";
 import { useTimedFeedback } from "../../../shared/hooks/useTimedFeedback";
+import { FOLDER_PATTERN, isFolderNameValid } from "../../../lib/folderValidation";
+import { ModalDialog } from "../../../components/ui/ModalDialog";
 
 type UseFileBrowserProps = {
   eventId: string;
@@ -32,8 +34,10 @@ type UseFileBrowserResult = {
   downloadFile: (name: string) => void;
   downloadZip: () => void;
   requestDelete: (name: string) => void;
+  openRename: (folder: string) => void;
   previewModal: React.ReactNode;
   deleteDialog: React.ReactNode;
+  renameDialog: React.ReactNode;
 };
 
 export const useFileBrowser = ({ eventId, mode }: UseFileBrowserProps): UseFileBrowserResult => {
@@ -52,6 +56,11 @@ export const useFileBrowser = ({ eventId, mode }: UseFileBrowserProps): UseFileB
   } = useTimedFeedback();
   const [deleteCandidate, setDeleteCandidate] = useState<string | null>(null);
   const [skipDeletePrompt, setSkipDeletePrompt] = useState(false);
+  const [renameCandidate, setRenameCandidate] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameTouched, setRenameTouched] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameErrorMessage, setRenameErrorMessage] = useState("");
   const isAdmin = mode === "admin";
   const deleteFileRef = useRef<(name: string) => void>(() => {});
   const initialLoadKeyRef = useRef<string | null>(null);
@@ -160,6 +169,24 @@ export const useFileBrowser = ({ eventId, mode }: UseFileBrowserProps): UseFileB
     },
     [isAdmin, skipDeleteConfirm]
   );
+
+  const openRename = useCallback(
+    (folder: string) => {
+      if (!isAdmin) return;
+      setRenameCandidate(folder);
+      setRenameValue(folder);
+      setRenameTouched(false);
+      setRenameErrorMessage("");
+    },
+    [isAdmin]
+  );
+
+  const cancelRename = useCallback(() => {
+    setRenameCandidate(null);
+    setRenameValue("");
+    setRenameTouched(false);
+    setRenameErrorMessage("");
+  }, []);
 
   const cancelDelete = useCallback(() => {
     setDeleteCandidate(null);
@@ -289,6 +316,123 @@ export const useFileBrowser = ({ eventId, mode }: UseFileBrowserProps): UseFileB
     skipLabel: t("FileBrowser.deleteSkipConfirm"),
   });
 
+  const renameTrimmed = renameValue.trim();
+  const isRenameValid = isFolderNameValid(renameTrimmed);
+  const isRenameChanged = Boolean(renameCandidate && renameTrimmed !== renameCandidate);
+  const showRenameError = renameTouched && !isRenameValid;
+
+  const confirmRename = useCallback(async () => {
+    if (!renameCandidate) return;
+    setRenameTouched(true);
+    const trimmed = renameValue.trim();
+    if (!isFolderNameValid(trimmed) || trimmed === renameCandidate) {
+      return;
+    }
+    clear();
+    setRenameErrorMessage("");
+    setIsRenaming(true);
+    try {
+      await apiClient.renameFolder(eventId, { folder: renameCandidate, to: trimmed });
+      showSuccess(t("FileBrowser.renameSuccess"));
+      cancelRename();
+      await fetchFiles(currentFolder, { replaceHistory: true });
+    } catch (error) {
+      if (error instanceof ApiError) {
+        const errorKey = (error.body as { errorKey?: string } | undefined)?.errorKey;
+        if (errorKey === "FOLDER_ALREADY_EXISTS") {
+          setRenameErrorMessage(t("FileBrowser.renameConflict"));
+        } else {
+          setRenameErrorMessage(error.message || t("FileBrowser.renameError"));
+        }
+      } else {
+        handleApiError(error, t("FileBrowser.renameError"));
+      }
+    } finally {
+      setIsRenaming(false);
+    }
+  }, [
+    apiClient,
+    cancelRename,
+    clear,
+    currentFolder,
+    eventId,
+    fetchFiles,
+    handleApiError,
+    renameCandidate,
+    renameValue,
+    showSuccess,
+    t,
+  ]);
+
+  const renameDialog = createElement(
+    ModalDialog,
+    {
+      open: Boolean(renameCandidate),
+      title: t("FileBrowser.renameTitle", { folder: renameCandidate ?? "" }),
+      onCancel: cancelRename,
+      showDefaultActions: false,
+      footerSlot: createElement(
+        "div",
+        {
+          className: "modal-controls",
+          style: { padding: "12px 14px", justifyContent: "flex-end" },
+        },
+        createElement(
+          "button",
+          {
+            type: "button",
+            className: "ghost",
+            onClick: cancelRename,
+            disabled: isRenaming,
+            "data-testid": "rename-folder-cancel",
+          },
+          t("FileBrowser.renameCancel")
+        ),
+        createElement(
+          "button",
+          {
+            type: "button",
+            className: "primary",
+            onClick: confirmRename,
+            disabled: !isRenameValid || !isRenameChanged || isRenaming,
+            "data-testid": "rename-folder-confirm",
+          },
+          t("FileBrowser.renameConfirm")
+        )
+      ),
+    },
+    createElement(
+      "label",
+      { className: "field" },
+      createElement("span", null, t("FileBrowser.renameLabel")),
+      createElement("input", {
+        type: "text",
+        placeholder: t("FileBrowser.renamePlaceholder"),
+        pattern: FOLDER_PATTERN,
+        maxLength: 32,
+        value: renameValue,
+        onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
+          setRenameValue(event.target.value);
+          if (!renameTouched) setRenameTouched(true);
+        },
+        onBlur: () => setRenameTouched(true),
+        disabled: isRenaming,
+        "data-testid": "rename-folder-input",
+      }),
+      createElement("p", { className: "hint" }, t("FileBrowser.renameHint")),
+      showRenameError
+        ? createElement(
+            "p",
+            { className: "helper status bad", "data-testid": "rename-folder-error" },
+            t("FileBrowser.renameInvalid")
+          )
+        : null,
+      renameErrorMessage
+        ? createElement("p", { className: "helper status bad" }, renameErrorMessage)
+        : null
+    )
+  );
+
   return {
     files,
     folders,
@@ -304,7 +448,9 @@ export const useFileBrowser = ({ eventId, mode }: UseFileBrowserProps): UseFileB
     downloadFile,
     downloadZip,
     requestDelete,
+    openRename,
     previewModal,
     deleteDialog,
+    renameDialog,
   };
 };

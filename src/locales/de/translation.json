@@ -235,7 +235,18 @@
     "downloadError": "Download fehlgeschlagen.",
     "zipError": "ZIP Download fehlgeschlagen.",
     "zipDownloading": "ZIP Download läuft...",
-    "zipSuccess": "ZIP Download gestartet."
+    "zipSuccess": "ZIP Download gestartet.",
+    "renameAction": "Ordner umbenennen",
+    "renameTitle": "Ordner umbenennen",
+    "renameLabel": "Neuer Ordnername",
+    "renamePlaceholder": "Neuer Name",
+    "renameHint": "Nur Buchstaben, Zahlen, Leerzeichen und - sind erlaubt.",
+    "renameInvalid": "Es sind nur Buchstaben, Zahlen, Leerzeichen und - erlaubt.",
+    "renameCancel": "Abbrechen",
+    "renameConfirm": "Umbenennen",
+    "renameSuccess": "Ordner umbenannt.",
+    "renameError": "Ordner konnte nicht umbenannt werden.",
+    "renameConflict": "Der Ordnername existiert bereits. Bitte wähle einen anderen Namen."
   },
   "Errors": {
     "rateLimited": "Sie haben die Aktion zu häufig durchgeführt. Bitte warten Sie einen Moment."

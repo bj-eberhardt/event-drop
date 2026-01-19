@@ -457,6 +457,64 @@ test.describe("guest event view", () => {
     });
   });
 
+  test("guest view hides rename folder action", async ({ page, request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    testInfo.skip(!baseURL, "baseURL required");
+
+    const eventId = getUniqueEventId("e2e-rename-guest");
+    const adminPassword = "adminpass123";
+    const guestPassword = "guestpass123";
+
+    await test.step("create guest event and open view", async () => {
+      await createEvent(
+        request,
+        {
+          name: "Guest Rename Event",
+          description: "",
+          eventId,
+          guestPassword,
+          adminPassword,
+          adminPasswordConfirm: adminPassword,
+          allowedMimeTypes: [],
+          allowGuestDownload: true,
+        },
+        baseURL
+      );
+      cleanup.track({ eventId, adminPassword, baseURL });
+
+      const mode = getMode();
+      const url = buildEventUrl(baseURL, mode, eventId);
+      await page.goto(url);
+      await loginGuest(page, guestPassword);
+      await expect(page.getByTestId("filebrowser-guest")).toBeVisible();
+    });
+
+    await test.step("upload file into folder", async () => {
+      const fromInput = page.getByTestId("upload-from-input");
+      const fileInput = page.getByTestId("upload-files-input");
+      await fromInput.fill("guest-folder");
+      await fileInput.setInputFiles({
+        name: "guest-folder-file.txt",
+        mimeType: "text/plain",
+        buffer: Buffer.from("guest folder file"),
+      });
+      const uploadItem = page
+        .getByTestId("upload-item")
+        .filter({ hasText: "guest-folder-file.txt" });
+      await expect(uploadItem.getByTestId("upload-status")).toHaveText(/fertig/i);
+      await expect(
+        page
+          .getByTestId("filebrowser-folders")
+          .getByTestId("filebrowser-folder")
+          .filter({ hasText: "guest-folder" })
+      ).toBeVisible();
+    });
+
+    await test.step("rename action is not visible", async () => {
+      await expect(page.getByTestId("filebrowser-folder-rename")).toHaveCount(0);
+    });
+  });
+
   test("guest can download uploaded file and cannot delete it", async ({
     page,
     request,
