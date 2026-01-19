@@ -38,6 +38,7 @@ const ErrorKeySchema = z.enum([
   "INVALID_INPUT",
   "INVALID_EVENT_ID",
   "FILE_NOT_FOUND",
+  "FOLDER_ALREADY_EXISTS",
   "NO_FILES_AVAILABLE",
   "UNSUPPORTED_FILE_TYPE",
   "EVENT_ID_TAKEN",
@@ -90,6 +91,10 @@ const DeleteFileResponseSchema = z.object({
   message: z.string(),
 });
 
+const RenameFolderResponseSchema = z.object({
+  success: z.boolean(),
+});
+
 const AppConfigResponseSchema = z.object({
   allowedDomains: z.array(z.string()),
   supportSubdomain: z.boolean(),
@@ -123,6 +128,10 @@ const FileUploadSchema = z.any().openapi({ type: "string", format: "binary" });
 const UploadRequestSchema = z.object({
   files: z.array(FileUploadSchema),
   from: z.string().optional(),
+});
+
+const RenameFolderRequestSchema = z.object({
+  to: z.string().regex(FOLDER_REGEX, "Invalid folder"),
 });
 
 const BinaryResponseSchema = z.string().openapi({ type: "string", format: "binary" });
@@ -316,6 +325,47 @@ registry.registerPath({
     },
     404: {
       description: "Not found",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/api/events/{eventId}/folders/{folder}",
+  request: {
+    params: EventIdParamSchema.extend({
+      folder: z.string().regex(FOLDER_REGEX, "Invalid folder"),
+    }),
+    body: {
+      content: {
+        "application/json": { schema: RenameFolderRequestSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Folder renamed",
+      content: { "application/json": { schema: RenameFolderResponseSchema } },
+    },
+    400: {
+      description: "Invalid input",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    401: {
+      description: "Authorization required",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    403: {
+      description: "Access denied",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    404: {
+      description: "Not found",
+      content: { "application/json": { schema: ErrorResponseSchema } },
+    },
+    409: {
+      description: "Folder already exists",
       content: { "application/json": { schema: ErrorResponseSchema } },
     },
   },
