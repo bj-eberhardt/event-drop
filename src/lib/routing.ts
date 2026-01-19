@@ -13,10 +13,10 @@ export const resolveRoute = ({
 }: ResolveRouteParams): Route => {
   if (hostSubdomain) {
     if (supportSubdomain) {
-      return pathname.startsWith("/admin") ? "admin" : "project";
+      return pathname.startsWith("/admin") ? "admin" : "event";
     }
     const parts = pathname.split("/").filter(Boolean);
-    return parts[1] === "admin" ? "admin" : "project";
+    return parts[1] === "admin" ? "admin" : "event";
   }
   return pathname.endsWith("/new") ? "new" : "home";
 };

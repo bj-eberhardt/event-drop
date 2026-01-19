@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { APP_CONFIG_TTL_MS, SUBDOMAIN_REGEX } from "./constants";
 import { redirectToHome } from "./lib/navigation";
-import { AdminView } from "./views/AdminView";
-import { HomeView } from "./views/HomeView";
-import { NewEventView } from "./views/NewEventView";
-import { EventView } from "./views/EventView";
+import { AdminView } from "./features/admin/AdminView";
+import { HomeView } from "./features/home/HomeView";
+import { NewEventView } from "./features/new-event/NewEventView";
+import { EventView } from "./features/event/EventView";
 import { Route } from "./types";
 import { ApiClient } from "./api/client";
 import { useAppConfigStore } from "./lib/appConfigStore";
@@ -22,7 +22,7 @@ export default function App() {
   const allowedDomain = useMemo(() => {
     return matchAllowedDomain(appConfig?.allowedDomains ?? [], window.location.host);
   }, [appConfig]);
-  const hostSubdomain = useMemo(() => {
+  const hostEventId = useMemo(() => {
     if (!allowedDomain) return null;
     if (!supportSubdomain) {
       const parts = window.location.pathname.split("/").filter(Boolean);
@@ -67,7 +67,7 @@ export default function App() {
   const [route, setRoute] = useState<Route>(() =>
     resolveRoute({
       pathname: window.location.pathname,
-      hostSubdomain,
+      hostSubdomain: hostEventId,
       supportSubdomain,
     })
   );
@@ -77,18 +77,18 @@ export default function App() {
     setRoute(
       resolveRoute({
         pathname: window.location.pathname,
-        hostSubdomain,
+        hostSubdomain: hostEventId,
         supportSubdomain,
       })
     );
-  }, [allowedDomain, hostSubdomain, supportSubdomain]);
+  }, [allowedDomain, hostEventId, supportSubdomain]);
 
   useEffect(() => {
     const handlePopState = () => {
       setRoute(
         resolveRoute({
           pathname: window.location.pathname,
-          hostSubdomain,
+          hostSubdomain: hostEventId,
           supportSubdomain,
         })
       );
@@ -96,19 +96,19 @@ export default function App() {
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [hostSubdomain, supportSubdomain]);
+  }, [hostEventId, supportSubdomain]);
 
   const navigate = (path: "/" | "/new" | "/admin") => {
-    if (!supportSubdomain && hostSubdomain) {
-      const basePath = `/${hostSubdomain}`;
+    if (!supportSubdomain && hostEventId) {
+      const basePath = `/${hostEventId}`;
       const target = path === "/admin" ? `${basePath}/admin` : basePath;
       window.history.pushState({}, "", target);
-      setRoute(path === "/admin" ? "admin" : "project");
+      setRoute(path === "/admin" ? "admin" : "event");
       return;
     }
     window.history.pushState({}, "", path);
-    if (hostSubdomain) {
-      setRoute(path.startsWith("/admin") ? "admin" : "project");
+    if (hostEventId) {
+      setRoute(path.startsWith("/admin") ? "admin" : "event");
     } else {
       setRoute(path === "/new" ? "new" : "home");
     }
@@ -152,16 +152,16 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      {route === "project" && hostSubdomain ? (
+      {route === "event" && hostEventId ? (
         <EventView
-          subdomain={hostSubdomain}
+          eventId={hostEventId}
           baseDomain={allowedDomain ?? window.location.hostname}
           onBackHome={() => redirectToHome(allowedDomain ?? window.location.hostname)}
           onAdmin={() => navigate("/admin")}
         />
-      ) : route === "admin" && hostSubdomain ? (
+      ) : route === "admin" && hostEventId ? (
         <AdminView
-          subdomain={hostSubdomain}
+          eventId={hostEventId}
           baseDomain={allowedDomain ?? window.location.hostname}
           supportSubdomain={Boolean(appConfig?.supportSubdomain)}
           onBackProject={() => navigate("/")}

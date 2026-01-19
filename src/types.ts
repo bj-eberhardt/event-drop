@@ -1,10 +1,10 @@
-export type Route = "home" | "new" | "project" | "admin";
+export type Route = "home" | "new" | "event" | "admin";
 
 export type Availability = "idle" | "invalid" | "checking" | "available" | "taken" | "error";
 
 export type FileEntry = { name: string; size: number; createdAt: string };
 
-export type ProjectMeta = {
+export type EventMeta = {
   name: string;
   description?: string;
   allowedMimeTypes: string[];
