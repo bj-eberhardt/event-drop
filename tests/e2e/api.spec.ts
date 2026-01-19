@@ -28,7 +28,18 @@ const toAuthHeader = (auth?: Auth) => {
   return { Authorization: `Basic ${token}` };
 };
 
-const createEventPayload = (overrides?: Partial<Record<string, unknown>>) => ({
+type CreateEventPayload = {
+  name: string;
+  description: string;
+  eventId: string;
+  guestPassword: string;
+  adminPassword: string;
+  adminPasswordConfirm: string;
+  allowedMimeTypes: string[];
+  allowGuestDownload?: boolean;
+};
+
+const createEventPayload = (overrides?: Partial<CreateEventPayload>): CreateEventPayload => ({
   name: "API Test Event",
   description: "",
   eventId: getUniqueEventId("e2e-api"),
@@ -38,6 +49,17 @@ const createEventPayload = (overrides?: Partial<Record<string, unknown>>) => ({
   allowedMimeTypes: [],
   ...overrides,
 });
+
+const expectExactKeys = (body: Record<string, unknown>, expectedKeys: string[]) => {
+  expect(Object.keys(body).sort()).toEqual(expectedKeys.slice().sort());
+};
+
+const expectAppConfigBody = (body: Record<string, unknown>) => {
+  expectExactKeys(body, ["allowedDomains", "supportSubdomain", "allowEventCreation"]);
+  expect(Array.isArray(body.allowedDomains)).toBe(true);
+  expect(typeof body.supportSubdomain).toBe("boolean");
+  expect(typeof body.allowEventCreation).toBe("boolean");
+};
 
 const expectEventInfoBody = (
   body: Record<string, unknown>,
@@ -52,21 +74,18 @@ const expectEventInfoBody = (
   }
 ) => {
   expect(body).toBeTruthy();
-  const keys = Object.keys(body).sort();
-  expect(keys).toEqual(
-    [
-      "accessLevel",
-      "allowedMimeTypes",
-      "allowGuestDownload",
-      "createdAt",
-      "description",
-      "eventId",
-      "name",
-      "secured",
-      "uploadMaxFileSizeBytes",
-      "uploadMaxTotalSizeBytes",
-    ].sort()
-  );
+  expectExactKeys(body, [
+    "accessLevel",
+    "allowedMimeTypes",
+    "allowGuestDownload",
+    "createdAt",
+    "description",
+    "eventId",
+    "name",
+    "secured",
+    "uploadMaxFileSizeBytes",
+    "uploadMaxTotalSizeBytes",
+  ]);
   expect(body.eventId).toBe(expected.eventId);
   expect(body.name).toBe(expected.name);
   expect(body.description).toBe(expected.description);
@@ -79,22 +98,121 @@ const expectEventInfoBody = (
   expect(typeof body.uploadMaxTotalSizeBytes).toBe("number");
 };
 
+const expectUpdateEventBody = (
+  body: Record<string, unknown>,
+  expected: {
+    eventId: string;
+    name: string;
+    description: string;
+    allowedMimeTypes: string[];
+    secured: boolean;
+    allowGuestDownload: boolean;
+    accessLevel: "admin";
+  }
+) => {
+  expectExactKeys(body, [
+    "accessLevel",
+    "allowedMimeTypes",
+    "allowGuestDownload",
+    "createdAt",
+    "description",
+    "eventId",
+    "name",
+    "ok",
+    "secured",
+    "uploadMaxFileSizeBytes",
+    "uploadMaxTotalSizeBytes",
+  ]);
+  expect(body.ok).toBe(true);
+  expect(body.eventId).toBe(expected.eventId);
+  expect(body.name).toBe(expected.name);
+  expect(body.description).toBe(expected.description);
+  expect(body.allowedMimeTypes).toEqual(expected.allowedMimeTypes);
+  expect(body.secured).toBe(expected.secured);
+  expect(body.allowGuestDownload).toBe(expected.allowGuestDownload);
+  expect(body.accessLevel).toBe(expected.accessLevel);
+  expect(typeof body.createdAt).toBe("string");
+  expect(typeof body.uploadMaxFileSizeBytes).toBe("number");
+  expect(typeof body.uploadMaxTotalSizeBytes).toBe("number");
+};
+
+const expectDeleteEventBody = (body: Record<string, unknown>) => {
+  expectExactKeys(body, ["message", "ok"]);
+  expect(typeof body.message).toBe("string");
+  expect(body.ok).toBe(true);
+};
+
+const expectListFilesBody = (
+  body: Record<string, unknown>,
+  expected: { folder: string; files: Array<{ name: string; size: number }>; folders: string[] }
+) => {
+  expectExactKeys(body, ["files", "folders", "folder"]);
+  expect(body.folder).toBe(expected.folder);
+  expect(body.folders).toEqual(expected.folders);
+  expect(Array.isArray(body.files)).toBe(true);
+  expect(body.files).toHaveLength(expected.files.length);
+  (body.files as Array<Record<string, unknown>>).forEach((entry, index) => {
+    expectExactKeys(entry, ["createdAt", "name", "size"]);
+    expect(entry.name).toBe(expected.files[index].name);
+    expect(entry.size).toBe(expected.files[index].size);
+    expect(typeof entry.createdAt).toBe("string");
+  });
+};
+
+const expectUploadBody = (
+  body: Record<string, unknown>,
+  expected: { uploaded: number; rejectedCount: number }
+) => {
+  expectExactKeys(body, ["message", "rejected", "uploaded"]);
+  expect(typeof body.message).toBe("string");
+  expect(body.uploaded).toBe(expected.uploaded);
+  expect(Array.isArray(body.rejected)).toBe(true);
+  expect((body.rejected as Array<unknown>).length).toBe(expected.rejectedCount);
+  (body.rejected as Array<Record<string, unknown>>).forEach((entry) => {
+    expectExactKeys(entry, ["file", "reason"]);
+    expect(typeof entry.file).toBe("string");
+    expect(typeof entry.reason).toBe("string");
+  });
+};
+
+const expectDeleteFileBody = (body: Record<string, unknown>) => {
+  expectExactKeys(body, ["message", "ok"]);
+  expect(typeof body.message).toBe("string");
+  expect(body.ok).toBe(true);
+};
+
 const createEvent = async (
   request: import("@playwright/test").APIRequestContext,
   baseURL?: string,
-  overrides?: Partial<Record<string, unknown>>
+  overrides?: Partial<CreateEventPayload>
 ) =>
   test.step("create event", async () => {
     const apiBase = getApiBaseUrl(baseURL);
     const payload = createEventPayload(overrides);
     const response = await request.post(`${apiBase}/api/events`, { data: payload });
     expect(response.status()).toBe(200);
+    const body = await response.json();
+    const guestPassword = payload.guestPassword as string;
+    const secured = Boolean(guestPassword);
+    const allowGuestDownload = payload.allowGuestDownload === true && secured;
+    const allowedMimeTypes = Array.isArray(payload.allowedMimeTypes)
+      ? (payload.allowedMimeTypes as string[])
+      : [];
+    expectEventInfoBody(body, {
+      eventId: payload.eventId as string,
+      name: payload.name as string,
+      description: payload.description as string,
+      allowedMimeTypes,
+      secured,
+      allowGuestDownload,
+      accessLevel: "unauthenticated",
+    });
     cleanup.track({
       eventId: payload.eventId as string,
       adminPassword: payload.adminPassword as string,
       baseURL,
     });
-    return { response, payload };
+    return { response, payload, body };
   });
 
 const uploadFile = async (
@@ -103,7 +221,8 @@ const uploadFile = async (
   eventId: string,
   auth: Auth,
   file: { name: string; mimeType: string; content: string | Buffer },
-  from?: string
+  from?: string,
+  expected?: { uploaded: number; rejectedCount: number }
 ) =>
   test.step(`upload file ${file.name}`, async () => {
     const buffer = Buffer.isBuffer(file.content) ? file.content : Buffer.from(file.content);
@@ -119,10 +238,19 @@ const uploadFile = async (
     if (from !== undefined) {
       multipart.from = from;
     }
-    return request.post(`${baseURL}/api/events/${encodeURIComponent(eventId)}/files`, {
-      headers: toAuthHeader(auth),
-      multipart,
-    });
+    const response = await request.post(
+      `${baseURL}/api/events/${encodeURIComponent(eventId)}/files`,
+      {
+        headers: toAuthHeader(auth),
+        multipart,
+      }
+    );
+    if (response.status() === 200) {
+      const body = await response.json();
+      expectUploadBody(body, expected ?? { uploaded: 1, rejectedCount: 0 });
+      return { response, body };
+    }
+    return { response };
   });
 
 const tinyPng = readFileSync("tests/e2e/assets/sample.png");
@@ -137,19 +265,16 @@ test.describe("GET /api/config", () => {
     const response = await request.get(`${apiBase}/api/config`);
     expect(response.status()).toBe(200);
     const body = await response.json();
-    expect(Array.isArray(body.allowedDomains)).toBe(true);
-    expect(typeof body.supportSubdomain).toBe("boolean");
-    expect(typeof body.allowEventCreation).toBe("boolean");
+    expectAppConfigBody(body);
   });
 });
 
 test.describe("POST /api/events", () => {
   test("creates event", async ({ request }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
-    const { response, payload } = await createEvent(request, baseURL, {
+    const { payload, body } = await createEvent(request, baseURL, {
       allowGuestDownload: true,
     });
-    const body = await response.json();
     expect(body.eventId).toBe(payload.eventId);
     expect(body.secured).toBe(true);
     expect(body.allowGuestDownload).toBe(true);
@@ -211,6 +336,7 @@ test.describe("POST /api/events", () => {
     const apiBase = getApiBaseUrl(testInfo.project.use.baseURL as string | undefined);
     const config = await request.get(`${apiBase}/api/config`);
     const configBody = await config.json();
+    expectAppConfigBody(configBody);
     testInfo.skip(configBody.allowEventCreation !== false, "event creation enabled");
 
     const payload = createEventPayload({ eventId: getUniqueEventId("e2e-disabled") });
@@ -332,13 +458,15 @@ test.describe("PATCH /api/events/{eventId}", () => {
     );
     expect(response.status()).toBe(200);
     const body = await response.json();
-    expect(body.ok).toBe(true);
-    expect(body.name).toBe("Updated Name");
-    expect(body.description).toBe("Updated description");
-    expect(body.allowGuestDownload).toBe(true);
-    expect(body.allowedMimeTypes).toContain("image/png");
-    expect(body.eventId).toBe(payload.eventId);
-    expect(body.secured).toBe(true);
+    expectUpdateEventBody(body, {
+      eventId: payload.eventId as string,
+      name: "Updated Name",
+      description: "Updated description",
+      allowedMimeTypes: ["image/png"],
+      secured: true,
+      allowGuestDownload: true,
+      accessLevel: "admin",
+    });
   });
 
   test("rejects missing auth", async ({ request }, testInfo) => {
@@ -513,9 +641,15 @@ test.describe("PATCH /api/events/{eventId}", () => {
     );
     expect(response.status()).toBe(200);
     const body = await response.json();
-    expect(body.allowGuestDownload).toBe(true);
-    expect(body.secured).toBe(true);
-    expect(body.eventId).toBe(payload.eventId);
+    expectUpdateEventBody(body, {
+      eventId: payload.eventId as string,
+      name: payload.name as string,
+      description: payload.description as string,
+      allowedMimeTypes: payload.allowedMimeTypes as string[],
+      secured: true,
+      allowGuestDownload: true,
+      accessLevel: "admin",
+    });
   });
 
   test("rejects invalid event id", async ({ request }, testInfo) => {
@@ -550,6 +684,8 @@ test.describe("DELETE /api/events/{eventId}", () => {
       { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
     );
     expect(response.status()).toBe(200);
+    const body = await response.json();
+    expectDeleteEventBody(body);
 
     const check = await request.get(
       `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}`,
@@ -631,7 +767,7 @@ test.describe("GET /api/events/{eventId}/files", () => {
     );
     expect(response.status()).toBe(200);
     const body = await response.json();
-    expect(body.files).toEqual([]);
+    expectListFilesBody(body, { folder: "", folders: [], files: [] });
   });
 
   test("lists files with guest auth when downloads enabled", async ({ request }, testInfo) => {
@@ -644,6 +780,8 @@ test.describe("GET /api/events/{eventId}/files", () => {
       { headers: toAuthHeader({ user: "guest", password: payload.guestPassword as string }) }
     );
     expect(response.status()).toBe(200);
+    const body = await response.json();
+    expectListFilesBody(body, { folder: "", folders: [], files: [] });
   });
 
   test("rejects missing auth on secured event", async ({ request }, testInfo) => {
@@ -710,16 +848,14 @@ test.describe("POST /api/events/{eventId}/files", () => {
     const { payload } = await createEvent(request, baseURL);
     const apiBase = getApiBaseUrl(baseURL);
 
-    const upload = await uploadFile(
+    const { response: uploadResponse } = await uploadFile(
       request,
       apiBase,
       payload.eventId as string,
       { user: "guest", password: payload.guestPassword as string },
       { name: "upload.txt", mimeType: "text/plain", content: "hello" }
     );
-    expect(upload.status()).toBe(200);
-    const body = await upload.json();
-    expect(body.uploaded).toBe(1);
+    expect(uploadResponse.status()).toBe(200);
   });
 
   test("rejects invalid folder input", async ({ request }, testInfo) => {
@@ -727,7 +863,7 @@ test.describe("POST /api/events/{eventId}/files", () => {
     const { payload } = await createEvent(request, baseURL);
     const apiBase = getApiBaseUrl(baseURL);
 
-    const upload = await uploadFile(
+    const { response: uploadResponse } = await uploadFile(
       request,
       apiBase,
       payload.eventId as string,
@@ -735,8 +871,8 @@ test.describe("POST /api/events/{eventId}/files", () => {
       { name: "bad.txt", mimeType: "text/plain", content: "hello" },
       "bad/"
     );
-    expect(upload.status()).toBe(400);
-    const body = await upload.json();
+    expect(uploadResponse.status()).toBe(400);
+    const body = await uploadResponse.json();
     expect(body.errorKey).toBe("INVALID_INPUT");
     expect(body.property).toBe("from");
   });
@@ -768,15 +904,15 @@ test.describe("POST /api/events/{eventId}/files", () => {
     const { payload } = await createEvent(request, baseURL);
     const apiBase = getApiBaseUrl(baseURL);
 
-    const upload = await uploadFile(
+    const { response: uploadResponse } = await uploadFile(
       request,
       apiBase,
       payload.eventId as string,
       { user: "guest", password: "wrongpass" },
       { name: "upload.txt", mimeType: "text/plain", content: "hello" }
     );
-    expect(upload.status()).toBe(403);
-    const body = await upload.json();
+    expect(uploadResponse.status()).toBe(403);
+    const body = await uploadResponse.json();
     expect(body.errorKey).toBe("AUTHORIZATION_REQUIRED");
   });
 
@@ -1097,16 +1233,15 @@ test.describe("GET /api/events/{eventId}/files/{filename}/preview", () => {
     const apiBase = getApiBaseUrl(baseURL);
 
     await test.step("upload preview image", async () => {
-      const upload = await uploadFile(
+      const { response: uploadResponse, body: uploadBody } = await uploadFile(
         request,
         apiBase,
         payload.eventId as string,
         { user: "guest", password: payload.guestPassword as string },
         { name: "preview.png", mimeType: "image/png", content: tinyPng }
       );
-      expect(upload.status()).toBe(200);
-      const uploadBody = await upload.json();
-      expect(uploadBody.uploaded).toBe(1);
+      expect(uploadResponse.status()).toBe(200);
+      expectUploadBody(uploadBody as Record<string, unknown>, { uploaded: 1, rejectedCount: 0 });
     });
 
     await test.step("wait for uploaded file to be readable", async () => {
@@ -1336,6 +1471,8 @@ test.describe("DELETE /api/events/{eventId}/files/{filename}", () => {
       { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
     );
     expect(response.status()).toBe(200);
+    const body = await response.json();
+    expectDeleteFileBody(body);
   });
 
   test("rejects missing auth", async ({ request }, testInfo) => {
@@ -1440,6 +1577,8 @@ test.describe("DELETE /api/events/{eventId}/files/{folder}/{filename}", () => {
       { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
     );
     expect(response.status()).toBe(200);
+    const body = await response.json();
+    expectDeleteFileBody(body);
   });
 
   test("rejects missing auth", async ({ request }, testInfo) => {
