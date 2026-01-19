@@ -419,7 +419,7 @@ export const useFileBrowser = ({ eventId, mode }: UseFileBrowserProps): UseFileB
         disabled: isRenaming,
         "data-testid": "rename-folder-input",
       }),
-      createElement("p", { className: "hint" }, t("FileBrowser.renameHint")),
+      createElement("p", { className: "helper" }, t("FileBrowser.renameHint")),
       showRenameError
         ? createElement(
             "p",
