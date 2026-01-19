@@ -40,6 +40,14 @@ body {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
 }
 
+.app-footer {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: #94a3b8;
+  opacity: 0.3;
+}
+
 @media (min-width: 700px) {
   .app-shell {
     min-width: 700px;

@@ -11,6 +11,7 @@ import { ApiClient } from "./api/client";
 import { useAppConfigStore } from "./lib/appConfigStore";
 import { getDomainMatchFromHost, matchAllowedDomain } from "./lib/domain";
 import { resolveRoute } from "./lib/routing";
+import { AppFooter } from "./shared/components/AppFooter";
 
 export default function App() {
   const { t } = useTranslation();
@@ -151,44 +152,47 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
-      {route === "event" && hostEventId ? (
-        <EventView
-          eventId={hostEventId}
-          baseDomain={allowedDomain ?? window.location.hostname}
-          onBackHome={() => redirectToHome(allowedDomain ?? window.location.hostname)}
-          onAdmin={() => navigate("/admin")}
-        />
-      ) : route === "admin" && hostEventId ? (
-        <AdminView
-          eventId={hostEventId}
-          baseDomain={allowedDomain ?? window.location.hostname}
-          supportSubdomain={Boolean(appConfig?.supportSubdomain)}
-          onBackProject={() => navigate("/")}
-        />
-      ) : null}
-      {route === "home" ? (
-        <HomeView onStartNew={() => navigate("/new")} allowEventCreation={allowEventCreation} />
-      ) : null}
-      {route === "new" ? (
-        allowEventCreation ? (
-          <NewEventView
+    <>
+      <div className="app-shell">
+        {route === "event" && hostEventId ? (
+          <EventView
+            eventId={hostEventId}
             baseDomain={allowedDomain ?? window.location.hostname}
-            supportSubdomain={supportSubdomain}
-            onCancel={() => navigate("/")}
+            onBackHome={() => redirectToHome(allowedDomain ?? window.location.hostname)}
+            onAdmin={() => navigate("/admin")}
           />
-        ) : (
-          <main className="form-page">
-            <h1>{t("EventView.errorTitle")}</h1>
-            <p className="lede">{t("App.eventCreationDisabled")}</p>
-            <div className="actions">
-              <button className="ghost" onClick={() => navigate("/")}>
-                {t("EventView.backHome")}
-              </button>
-            </div>
-          </main>
-        )
-      ) : null}
-    </div>
+        ) : route === "admin" && hostEventId ? (
+          <AdminView
+            eventId={hostEventId}
+            baseDomain={allowedDomain ?? window.location.hostname}
+            supportSubdomain={Boolean(appConfig?.supportSubdomain)}
+            onBackProject={() => navigate("/")}
+          />
+        ) : null}
+        {route === "home" ? (
+          <HomeView onStartNew={() => navigate("/new")} allowEventCreation={allowEventCreation} />
+        ) : null}
+        {route === "new" ? (
+          allowEventCreation ? (
+            <NewEventView
+              baseDomain={allowedDomain ?? window.location.hostname}
+              supportSubdomain={supportSubdomain}
+              onCancel={() => navigate("/")}
+            />
+          ) : (
+            <main className="form-page">
+              <h1>{t("EventView.errorTitle")}</h1>
+              <p className="lede">{t("App.eventCreationDisabled")}</p>
+              <div className="actions">
+                <button className="ghost" onClick={() => navigate("/")}>
+                  {t("EventView.backHome")}
+                </button>
+              </div>
+            </main>
+          )
+        ) : null}
+      </div>
+      {route === "home" ? <AppFooter /> : null}
+    </>
   );
 }
