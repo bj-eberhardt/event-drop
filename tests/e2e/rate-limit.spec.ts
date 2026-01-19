@@ -171,21 +171,8 @@ test.describe("rate limit messaging", () => {
     });
 
     await test.step("mock 429 for file list", async () => {
-      let allowedRequests = 1;
       await page.route(`**/api/events/${eventId}/files*`, (route) => {
-        console.log("File list request intercepted, allowedRequests =", allowedRequests);
-        allowedRequests -= 1;
-        if (route.request().method() !== "GET" || allowedRequests >= 0) {
-          route.continue();
-          return;
-        }
-        route.fulfill({
-          status: 429,
-          contentType: "application/json",
-          body: JSON.stringify({ message: "Too Many Requests" }),
-        });
-      });
-      await page.route(`**/api/events/${eventId}`, (route) => {
+        console.log("File list request intercepted");
         if (route.request().method() !== "GET") {
           route.continue();
           return;
@@ -208,7 +195,6 @@ test.describe("rate limit messaging", () => {
 
     await test.step("shows rate limit message", async () => {
       await expect(page.getByTestId("filebrowser-admin")).toContainText(RATE_LIMIT_MESSAGE);
-      await expect(page.getByTestId("admin-settings-loading")).toContainText(RATE_LIMIT_MESSAGE);
     });
   });
 

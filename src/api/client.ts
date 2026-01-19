@@ -116,9 +116,9 @@ export class ApiClient {
   }
 
   /**
-   * Get project information
-   * Requires guest access if project is secured
-   * @throws Error if project doesn't exist (404)
+   * Get event information
+   * Requires guest access if event is secured
+   * @throws Error if event doesn't exist (404)
    * @throws Error if authentication fails (403, 401) or other error
    */
   async getEvent(eventId: string): Promise<EventInfo> {
@@ -164,7 +164,7 @@ export class ApiClient {
    * Delete an event
    * Requires admin access
    */
-  async deleteProject(eventId: string): Promise<DeleteEventResponse> {
+  async deleteEvent(eventId: string): Promise<DeleteEventResponse> {
     const response = await fetch(`${apiBase}/api/events/${encodeURIComponent(eventId)}`, {
       method: "DELETE",
       headers: this.getAuthHeader(),
