@@ -23,6 +23,7 @@ export function EventView({ eventId, baseDomain, onBackHome, onAdmin }: EventVie
   const [message, setMessage] = useState("");
   const [guestError, setGuestError] = useState("");
   const [fileBrowserRefresh, setFileBrowserRefresh] = useState(0);
+  const [loginAttempt, setLoginAttempt] = useState(0);
   const hasVerifiedAccessRef = useRef(false);
   const accessRequestRef = useRef<Promise<void> | null>(null);
   const lastAccessKeyRef = useRef<string | null>(null);
@@ -83,7 +84,7 @@ export function EventView({ eventId, baseDomain, onBackHome, onAdmin }: EventVie
   );
 
   useEffect(() => {
-    const accessKey = `${eventId}:${guestToken ?? ""}`;
+    const accessKey = `${eventId}:${guestToken ?? ""}:${loginAttempt}`;
     if (lastAccessKeyRef.current === accessKey) return;
     if (!accessRequestRef.current) {
       lastAccessKeyRef.current = accessKey;
@@ -100,13 +101,14 @@ export function EventView({ eventId, baseDomain, onBackHome, onAdmin }: EventVie
         }
       })();
     }
-  }, [eventId, fetchEvent, guestToken, t]);
+  }, [eventId, fetchEvent, guestToken, loginAttempt, t]);
 
   const submitGuestPassword = async (password: string) => {
     setGuestError("");
     try {
       lastAccessKeyRef.current = null;
       setGuestToken(password);
+      setLoginAttempt((value) => value + 1);
     } catch {
       setStatus("error");
       setMessage(t("AdminView.serverUnavailable"));

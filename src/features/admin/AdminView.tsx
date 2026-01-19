@@ -110,6 +110,13 @@ export function AdminView({
         setSettingsLoading(true);
         try {
           const eventInfo = await apiClient.getEvent(eventId);
+          if (eventInfo.accessLevel !== "admin") {
+            setMessage(
+              isFirstAttempt ? t("AdminView.loginRequired") : t("AdminView.loginWrongPassword")
+            );
+            setStatus("locked");
+            return;
+          }
           const secured = Boolean(eventInfo.secured);
           const allowDownload = Boolean(eventInfo.allowGuestDownload && secured);
           setEventSettings({
