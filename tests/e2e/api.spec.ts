@@ -39,6 +39,46 @@ const createEventPayload = (overrides?: Partial<Record<string, unknown>>) => ({
   ...overrides,
 });
 
+const expectEventInfoBody = (
+  body: Record<string, unknown>,
+  expected: {
+    eventId: string;
+    name: string;
+    description: string;
+    allowedMimeTypes: string[];
+    secured: boolean;
+    allowGuestDownload: boolean;
+    accessLevel: "unauthenticated" | "guest" | "admin";
+  }
+) => {
+  expect(body).toBeTruthy();
+  const keys = Object.keys(body).sort();
+  expect(keys).toEqual(
+    [
+      "accessLevel",
+      "allowedMimeTypes",
+      "allowGuestDownload",
+      "createdAt",
+      "description",
+      "eventId",
+      "name",
+      "secured",
+      "uploadMaxFileSizeBytes",
+      "uploadMaxTotalSizeBytes",
+    ].sort()
+  );
+  expect(body.eventId).toBe(expected.eventId);
+  expect(body.name).toBe(expected.name);
+  expect(body.description).toBe(expected.description);
+  expect(body.allowedMimeTypes).toEqual(expected.allowedMimeTypes);
+  expect(body.secured).toBe(expected.secured);
+  expect(body.allowGuestDownload).toBe(expected.allowGuestDownload);
+  expect(body.accessLevel).toBe(expected.accessLevel);
+  expect(typeof body.createdAt).toBe("string");
+  expect(typeof body.uploadMaxFileSizeBytes).toBe("number");
+  expect(typeof body.uploadMaxTotalSizeBytes).toBe("number");
+};
+
 const createEvent = async (
   request: import("@playwright/test").APIRequestContext,
   baseURL?: string,
@@ -192,6 +232,38 @@ test.describe("GET /api/events/{eventId}", () => {
       { headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }) }
     );
     expect(response.status()).toBe(200);
+    const body = await response.json();
+    expectEventInfoBody(body, {
+      eventId: payload.eventId as string,
+      name: payload.name as string,
+      description: payload.description as string,
+      allowedMimeTypes: payload.allowedMimeTypes as string[],
+      secured: true,
+      allowGuestDownload: false,
+      accessLevel: "admin",
+    });
+  });
+
+  test("returns event info with guest auth", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL);
+
+    const apiBase = getApiBaseUrl(baseURL);
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}`,
+      { headers: toAuthHeader({ user: "guest", password: payload.guestPassword as string }) }
+    );
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expectEventInfoBody(body, {
+      eventId: payload.eventId as string,
+      name: payload.name as string,
+      description: payload.description as string,
+      allowedMimeTypes: payload.allowedMimeTypes as string[],
+      secured: true,
+      allowGuestDownload: false,
+      accessLevel: "guest",
+    });
   });
 
   test("rejects missing auth on secured event", async ({ request }, testInfo) => {
