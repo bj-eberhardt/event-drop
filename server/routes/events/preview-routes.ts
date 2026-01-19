@@ -12,6 +12,7 @@ import { ErrorResponse } from "../../types.js";
 import { logger } from "../../logger.js";
 import { storage } from "../../storage/index.js";
 import { sendStorageError } from "./storage-response.js";
+import { sendError } from "../../utils/error-response.js";
 
 export const registerPreviewRoutes = (router: express.Router) => {
   const handlePreview = async (
@@ -38,11 +39,10 @@ export const registerPreviewRoutes = (router: express.Router) => {
         lowerName.endsWith(".webp");
 
       if (!isImage) {
-        return res.status(415).type("application/json").json({
+        return sendError(res, 415, {
           message: "Preview not available for this file type.",
           errorKey: "UNSUPPORTED_FILE_TYPE",
           property: "filename",
-          additionalParams: {},
         });
       }
 
@@ -86,11 +86,10 @@ export const registerPreviewRoutes = (router: express.Router) => {
           { eventId: req.params.eventId, folder: folderValue, filename },
           err
         );
-        return res.status(400).type("application/json").json({
+        return sendError(res, 400, {
           message: "Preview not available for this file.",
           errorKey: "INVALID_INPUT",
           property: "filename",
-          additionalParams: {},
         });
       }
     } catch (error) {
