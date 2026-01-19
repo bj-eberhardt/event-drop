@@ -28,7 +28,9 @@ export const registerConfigRoutes = (router: express.Router) => {
       next: NextFunction
     ) => {
       try {
-        return res.status(200).json(buildEventResponse(req.event!));
+        return res
+          .status(200)
+          .json(buildEventResponse(req.event!, req.user?.role ?? "unauthenticated"));
       } catch (error) {
         next(error);
       }
@@ -107,7 +109,7 @@ export const registerConfigRoutes = (router: express.Router) => {
           allowGuestDownload: Boolean(allowGuestDownload),
         });
 
-        return res.status(200).json(buildEventResponse(event));
+        return res.status(200).json(buildEventResponse(event, "unauthenticated"));
       } catch (error) {
         if (error instanceof EventAlreadyExistsError) {
           return sendError(res, 409, {
@@ -175,7 +177,9 @@ export const registerConfigRoutes = (router: express.Router) => {
 
         await saveEvent(updated);
 
-        return res.status(200).json({ ok: true, ...buildEventResponse(updated) });
+        return res
+          .status(200)
+          .json({ ok: true, ...buildEventResponse(updated, req.user?.role ?? "admin") });
       } catch (error) {
         next(error);
       }

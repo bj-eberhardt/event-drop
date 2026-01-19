@@ -54,6 +54,8 @@ export const useFileBrowser = ({ eventId, mode }: UseFileBrowserProps): UseFileB
   const [skipDeletePrompt, setSkipDeletePrompt] = useState(false);
   const isAdmin = mode === "admin";
   const deleteFileRef = useRef<(name: string) => void>(() => {});
+  const initialLoadKeyRef = useRef<string | null>(null);
+  const initialLoadRequestRef = useRef<Promise<void> | null>(null);
 
   const { adminToken, guestToken, skipDeleteConfirm, setSkipDeleteConfirm } = useSessionStore();
   const apiClient = useMemo(() => {
@@ -249,10 +251,18 @@ export const useFileBrowser = ({ eventId, mode }: UseFileBrowserProps): UseFileB
 
   useEffect(() => {
     const initialFolder = getFolderFromLocation(mode, eventId);
-    fetchFiles(initialFolder, { replaceHistory: false }).catch(() => {
-      showError(t("AdminView.serverUnavailable"));
-      setIsLoading(false);
-    });
+    const initialKey = `${eventId}:${mode}:${initialFolder}`;
+    if (initialLoadKeyRef.current !== initialKey && !initialLoadRequestRef.current) {
+      initialLoadKeyRef.current = initialKey;
+      initialLoadRequestRef.current = fetchFiles(initialFolder, { replaceHistory: false })
+        .catch(() => {
+          showError(t("AdminView.serverUnavailable"));
+          setIsLoading(false);
+        })
+        .finally(() => {
+          initialLoadRequestRef.current = null;
+        });
+    }
 
     const onPop = () => {
       const folder = getFolderFromLocation(mode, eventId);

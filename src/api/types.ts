@@ -10,6 +10,7 @@ export interface EventInfo {
   allowedMimeTypes: string[];
   secured: boolean;
   allowGuestDownload: boolean;
+  accessLevel?: "unauthenticated" | "guest" | "admin";
   uploadMaxFileSizeBytes: number;
   uploadMaxTotalSizeBytes: number;
   createdAt?: string;
@@ -33,6 +34,7 @@ export interface CreateEventResponse {
   allowedMimeTypes: string[];
   secured: boolean;
   allowGuestDownload: boolean;
+  accessLevel?: "unauthenticated" | "guest" | "admin";
   uploadMaxFileSizeBytes: number;
   uploadMaxTotalSizeBytes: number;
   createdAt: string;
@@ -59,6 +61,7 @@ export interface UpdateEventResponse {
   allowedMimeTypes: string[];
   secured: boolean;
   allowGuestDownload: boolean;
+  accessLevel?: "unauthenticated" | "guest" | "admin";
   uploadMaxFileSizeBytes: number;
   uploadMaxTotalSizeBytes: number;
   createdAt?: string;

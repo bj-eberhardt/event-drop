@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiClient, ApiError } from "../../api/client";
 import { EventMeta } from "../../types";
@@ -23,6 +23,9 @@ export function EventView({ eventId, baseDomain, onBackHome, onAdmin }: EventVie
   const [message, setMessage] = useState("");
   const [guestError, setGuestError] = useState("");
   const [fileBrowserRefresh, setFileBrowserRefresh] = useState(0);
+  const hasVerifiedAccessRef = useRef(false);
+  const accessRequestRef = useRef<Promise<void> | null>(null);
+  const lastAccessKeyRef = useRef<string | null>(null);
 
   const { guestToken, setGuestToken } = useSessionStore();
   const apiClient = useApiClient("guest");
@@ -55,8 +58,9 @@ export function EventView({ eventId, baseDomain, onBackHome, onAdmin }: EventVie
           }
 
           if (error.status === 401 || error.status === 403) {
+            const isFirstAttempt = !hasVerifiedAccessRef.current;
             setGuestError(
-              status === "loading"
+              isFirstAttempt
                 ? t("AdminView.loginRequired")
                 : t("EventView.lockedDescription", { subdomain: eventId })
             );
@@ -75,34 +79,34 @@ export function EventView({ eventId, baseDomain, onBackHome, onAdmin }: EventVie
         setMessage(errMessage);
       }
     },
-    [apiClient, eventId, status, t]
+    [apiClient, eventId, t]
   );
 
   useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      setStatus("loading");
-      try {
-        await fetchEvent();
-      } catch {
-        if (!cancelled) {
+    const accessKey = `${eventId}:${guestToken ?? ""}`;
+    if (lastAccessKeyRef.current === accessKey) return;
+    if (!accessRequestRef.current) {
+      lastAccessKeyRef.current = accessKey;
+      accessRequestRef.current = (async () => {
+        setStatus("loading");
+        try {
+          await fetchEvent();
+        } catch {
           setStatus("error");
           setMessage(t("AdminView.serverUnavailable"));
+        } finally {
+          hasVerifiedAccessRef.current = true;
+          accessRequestRef.current = null;
         }
-      }
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [eventId, fetchEvent, t]);
+      })();
+    }
+  }, [eventId, fetchEvent, guestToken, t]);
 
   const submitGuestPassword = async (password: string) => {
     setGuestError("");
     try {
+      lastAccessKeyRef.current = null;
       setGuestToken(password);
-      const nextClient = ApiClient.withGuestToken(password);
-      await fetchEvent(nextClient);
     } catch {
       setStatus("error");
       setMessage(t("AdminView.serverUnavailable"));
@@ -111,13 +115,7 @@ export function EventView({ eventId, baseDomain, onBackHome, onAdmin }: EventVie
 
   const handleGuestLogout = async () => {
     setGuestToken(null);
-    setStatus("loading");
-    try {
-      await fetchEvent(ApiClient.anonymous());
-    } catch {
-      setStatus("error");
-      setMessage(t("AdminView.serverUnavailable"));
-    }
+    lastAccessKeyRef.current = null;
   };
 
   if (status === "loading") {

@@ -20,6 +20,7 @@ const ProjectResponseSchema = z.object({
   allowedMimeTypes: z.array(z.string()),
   secured: z.boolean(),
   allowGuestDownload: z.boolean(),
+  accessLevel: z.enum(["unauthenticated", "guest", "admin"]),
   uploadMaxFileSizeBytes: z.number(),
   uploadMaxTotalSizeBytes: z.number(),
   createdAt: z.string().optional(),

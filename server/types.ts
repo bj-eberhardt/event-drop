@@ -14,6 +14,8 @@ export interface EventConfig {
   };
 }
 
+export type AccessLevel = "unauthenticated" | "guest" | "admin";
+
 export const ERROR_KEYS = [
   "ADMIN_ACCESS_REQUIRED",
   "GUEST_ACCESS_REQUIRED",
@@ -52,6 +54,7 @@ export interface EventConfigResponse {
   description?: string;
   secured: boolean;
   allowGuestDownload: boolean;
+  accessLevel: AccessLevel;
   createdAt: string;
   allowedMimeTypes: string[];
   uploadMaxFileSizeBytes: number;

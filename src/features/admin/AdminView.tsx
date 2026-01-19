@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../../api/client";
 import type { EventInfo } from "../../api/types";
@@ -35,6 +35,8 @@ export function AdminView({
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [settingsLoadError, setSettingsLoadError] = useState("");
   const [eventSettings, setEventSettings] = useState<EventInfo | null>(null);
+  const hasVerifiedAccessRef = useRef(false);
+  const accessRequestRef = useRef<Promise<void> | null>(null);
 
   const { setAdminToken, setGuestToken } = useSessionStore();
   const apiClient = useApiClient("admin");
@@ -65,53 +67,6 @@ export function AdminView({
     },
     [eventId, t]
   );
-
-  const verifyAdminAccess = useCallback(async () => {
-    setMessage("");
-    setStatus("loading");
-    try {
-      await apiClient.listFiles(eventId);
-      setStatus("ready");
-    } catch (error) {
-      if (error instanceof ApiError) {
-        const errMessage = error.message || t("AdminView.filesLoadError");
-        setMessage(errMessage);
-        if (error.status === 401 || error.status === 403) {
-          setMessage(
-            status === "loading" ? t("AdminView.loginRequired") : t("AdminView.loginWrongPassword")
-          );
-          setStatus("locked");
-          return;
-        }
-        setStatus("error");
-        return;
-      }
-      const errMessage = error instanceof Error ? error.message : t("AdminView.filesLoadError");
-      setMessage(errMessage);
-      setStatus("error");
-    }
-  }, [apiClient, eventId, status, t]);
-
-  const loadEventSettings = useCallback(async () => {
-    setSettingsLoadError("");
-    try {
-      const eventInfo = await apiClient.getEvent(eventId);
-      const secured = Boolean(eventInfo.secured);
-      const allowDownload = Boolean(eventInfo.allowGuestDownload && secured);
-      setEventSettings({
-        ...eventInfo,
-        secured,
-        allowGuestDownload: allowDownload,
-      });
-    } catch (error) {
-      handleApiError(error, t("AdminView.projectSettingsLoadError"));
-      const errMessage =
-        error instanceof Error ? error.message : t("AdminView.projectSettingsLoadError");
-      setSettingsLoadError(errMessage);
-    } finally {
-      setSettingsLoading(false);
-    }
-  }, [apiClient, eventId, handleApiError, t]);
 
   const handleEventSettingsUpdate = useCallback((updated: EventInfo) => {
     setEventSettings(updated);
@@ -146,20 +101,48 @@ export function AdminView({
   );
 
   useEffect(() => {
-    verifyAdminAccess().catch(() => {
-      setStatus("error");
-      setMessage(t("AdminView.serverUnavailable"));
-    });
-  }, [verifyAdminAccess, t]);
-
-  useEffect(() => {
-    if (status !== "ready") return;
-    setSettingsLoading(true);
-    loadEventSettings().catch(() => {
-      setSettingsLoadError(t("AdminView.projectSettingsLoadError"));
-      setSettingsLoading(false);
-    });
-  }, [loadEventSettings, status, t]);
+    if (!accessRequestRef.current) {
+      accessRequestRef.current = (async () => {
+        const isFirstAttempt = !hasVerifiedAccessRef.current;
+        setMessage("");
+        setStatus("loading");
+        setSettingsLoadError("");
+        setSettingsLoading(true);
+        try {
+          const eventInfo = await apiClient.getEvent(eventId);
+          const secured = Boolean(eventInfo.secured);
+          const allowDownload = Boolean(eventInfo.allowGuestDownload && secured);
+          setEventSettings({
+            ...eventInfo,
+            secured,
+            allowGuestDownload: allowDownload,
+          });
+          setStatus("ready");
+        } catch (error) {
+          if (error instanceof ApiError) {
+            const errMessage = error.message || t("AdminView.filesLoadError");
+            setMessage(errMessage);
+            if (error.status === 401 || error.status === 403) {
+              setMessage(
+                isFirstAttempt ? t("AdminView.loginRequired") : t("AdminView.loginWrongPassword")
+              );
+              setStatus("locked");
+              return;
+            }
+            setStatus("error");
+            return;
+          }
+          const errMessage = error instanceof Error ? error.message : t("AdminView.filesLoadError");
+          setMessage(errMessage);
+          setStatus("error");
+        } finally {
+          setSettingsLoading(false);
+          hasVerifiedAccessRef.current = true;
+          accessRequestRef.current = null;
+        }
+      })();
+    }
+  }, [apiClient, eventId, t]);
 
   const shareUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
