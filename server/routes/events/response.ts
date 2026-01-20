@@ -7,6 +7,7 @@ export const buildEventResponse = (
 ): EventConfigResponse => {
   const secured = Boolean(event.auth.guestPasswordHash);
   const allowGuestDownload = Boolean(event.settings.allowGuestDownload && secured);
+  const allowGuestUpload = event.settings.allowGuestUpload ?? true;
   return {
     eventId: event.eventId,
     allowedMimeTypes: event.allowedMimeTypes || [],
@@ -14,6 +15,7 @@ export const buildEventResponse = (
     description: event.description || "",
     secured,
     allowGuestDownload,
+    allowGuestUpload,
     accessLevel,
     uploadMaxFileSizeBytes: UPLOAD_MAX_FILE_SIZE_BYTES,
     uploadMaxTotalSizeBytes: UPLOAD_MAX_TOTAL_SIZE_BYTES,

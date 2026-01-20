@@ -11,6 +11,7 @@ export type EventMeta = {
   eventId: string;
   secured: boolean;
   allowGuestDownload?: boolean;
+  allowGuestUpload?: boolean;
   uploadMaxFileSizeBytes?: number;
   uploadMaxTotalSizeBytes?: number;
 };

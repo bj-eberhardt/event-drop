@@ -31,6 +31,7 @@ export function AdminSettings({
   const [allowGuestDownload, setAllowGuestDownload] = useState(
     Boolean(eventInfo.allowGuestDownload)
   );
+  const [allowGuestUpload, setAllowGuestUpload] = useState(eventInfo.allowGuestUpload ?? true);
   const [eventName, setEventName] = useState(eventInfo.name || "");
   const [eventDescription, setEventDescription] = useState(eventInfo.description || "");
   const [allowedMimeTypes, setAllowedMimeTypes] = useState<string[]>(
@@ -43,11 +44,13 @@ export function AdminSettings({
     setGuestPasswordMasked(Boolean(eventInfo.secured));
     setGuestPasswordInput("");
     setAllowGuestDownload(Boolean(eventInfo.allowGuestDownload));
+    setAllowGuestUpload(eventInfo.allowGuestUpload ?? true);
     setEventName(eventInfo.name || "");
     setEventDescription(eventInfo.description || "");
     setAllowedMimeTypes(eventInfo.allowedMimeTypes || []);
   }, [
     eventInfo.allowGuestDownload,
+    eventInfo.allowGuestUpload,
     eventInfo.allowedMimeTypes,
     eventInfo.description,
     eventInfo.name,
@@ -72,6 +75,7 @@ export function AdminSettings({
     JSON.stringify([...(eventInfo.allowedMimeTypes || [])].sort());
   const isBusy = loading || settingsStatus === "saving";
   const passwordValue = guestPasswordMasked ? MASKED_GUEST_PASSWORD : guestPasswordInput;
+  const guestAccessInvalid = !allowGuestDownload && !allowGuestUpload;
 
   useEffect(() => {
     if (!guestPasswordActive && allowGuestDownload) {
@@ -102,9 +106,18 @@ export function AdminSettings({
     setAllowGuestDownload(checked);
   };
 
+  const handleAllowGuestUploadChange = (checked: boolean) => {
+    setAllowGuestUpload(checked);
+  };
+
   const submitEventSettings = async (formEvent: FormEvent) => {
     formEvent.preventDefault();
     settingsFeedback.clear();
+
+    if (guestAccessInvalid) {
+      settingsFeedback.showError(t("AdminSettings.guestAccessRequired"));
+      return;
+    }
 
     if (hasNewGuestPassword && trimmedGuestPassword.length < 4) {
       settingsFeedback.showError(t("AdminSettings.guestPasswordTooShort"));
@@ -128,6 +141,9 @@ export function AdminSettings({
     ) {
       payload.allowGuestDownload = allowGuestDownload;
     }
+    if (allowGuestUpload !== eventInfo.allowGuestUpload) {
+      payload.allowGuestUpload = allowGuestUpload;
+    }
 
     setSettingsStatus("saving");
     try {
@@ -141,6 +157,7 @@ export function AdminSettings({
         allowedMimeTypes: response.allowedMimeTypes || [],
         secured,
         allowGuestDownload: allowDownloads,
+        allowGuestUpload: response.allowGuestUpload ?? true,
         uploadMaxFileSizeBytes: response.uploadMaxFileSizeBytes ?? eventInfo.uploadMaxFileSizeBytes,
         uploadMaxTotalSizeBytes:
           response.uploadMaxTotalSizeBytes ?? eventInfo.uploadMaxTotalSizeBytes,
@@ -151,6 +168,7 @@ export function AdminSettings({
       setGuestPasswordMasked(secured);
       setGuestPasswordInput("");
       setAllowGuestDownload(allowDownloads);
+      setAllowGuestUpload(response.allowGuestUpload ?? true);
       setEventName(response.name);
       setEventDescription(response.description || "");
       setAllowedMimeTypes(response.allowedMimeTypes || []);
@@ -259,6 +277,29 @@ export function AdminSettings({
           </label>
         </div>
         <p className="helper">{t("AdminSettings.downloadInfo")}</p>
+      </label>
+      <label className="field">
+        <div className="label-row">
+          <span>{t("AdminSettings.uploadLabel")}</span>
+          <span className="hint">{t("AdminSettings.uploadHint")}</span>
+        </div>
+        <div className="label-row">
+          <label className="checkbox-helper">
+            <input
+              type="checkbox"
+              checked={allowGuestUpload}
+              disabled={isBusy}
+              onChange={(e) => handleAllowGuestUploadChange(e.target.checked)}
+              data-testid="admin-guest-upload"
+            />
+            <span>{t("AdminSettings.uploadHelper")}</span>
+          </label>
+        </div>
+        {guestAccessInvalid ? (
+          <p className="helper status bad" data-testid="admin-guest-access-error">
+            {t("AdminSettings.guestAccessRequired")}
+          </p>
+        ) : null}
       </label>
       <div className="field">
         <div className="label-row">

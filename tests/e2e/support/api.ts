@@ -9,6 +9,7 @@ type CreateEventPayload = {
   adminPasswordConfirm: string;
   allowedMimeTypes?: string[];
   allowGuestDownload?: boolean;
+  allowGuestUpload?: boolean;
 };
 
 const getApiBaseUrl = (baseURL?: string) => {

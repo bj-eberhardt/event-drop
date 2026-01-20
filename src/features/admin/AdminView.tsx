@@ -123,6 +123,7 @@ export function AdminView({
             ...eventInfo,
             secured,
             allowGuestDownload: allowDownload,
+            allowGuestUpload: eventInfo.allowGuestUpload ?? true,
           });
           setStatus("ready");
         } catch (error) {

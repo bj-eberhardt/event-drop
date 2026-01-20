@@ -37,6 +37,7 @@ type CreateEventPayload = {
   adminPasswordConfirm: string;
   allowedMimeTypes: string[];
   allowGuestDownload?: boolean;
+  allowGuestUpload?: boolean;
 };
 
 const createEventPayload = (overrides?: Partial<CreateEventPayload>): CreateEventPayload => ({
@@ -70,6 +71,7 @@ const expectEventInfoBody = (
     allowedMimeTypes: string[];
     secured: boolean;
     allowGuestDownload: boolean;
+    allowGuestUpload: boolean;
     accessLevel: "unauthenticated" | "guest" | "admin";
   }
 ) => {
@@ -78,6 +80,7 @@ const expectEventInfoBody = (
     "accessLevel",
     "allowedMimeTypes",
     "allowGuestDownload",
+    "allowGuestUpload",
     "createdAt",
     "description",
     "eventId",
@@ -92,6 +95,7 @@ const expectEventInfoBody = (
   expect(body.allowedMimeTypes).toEqual(expected.allowedMimeTypes);
   expect(body.secured).toBe(expected.secured);
   expect(body.allowGuestDownload).toBe(expected.allowGuestDownload);
+  expect(body.allowGuestUpload).toBe(expected.allowGuestUpload);
   expect(body.accessLevel).toBe(expected.accessLevel);
   expect(typeof body.createdAt).toBe("string");
   expect(typeof body.uploadMaxFileSizeBytes).toBe("number");
@@ -107,6 +111,7 @@ const expectUpdateEventBody = (
     allowedMimeTypes: string[];
     secured: boolean;
     allowGuestDownload: boolean;
+    allowGuestUpload: boolean;
     accessLevel: "admin";
   }
 ) => {
@@ -114,6 +119,7 @@ const expectUpdateEventBody = (
     "accessLevel",
     "allowedMimeTypes",
     "allowGuestDownload",
+    "allowGuestUpload",
     "createdAt",
     "description",
     "eventId",
@@ -130,6 +136,7 @@ const expectUpdateEventBody = (
   expect(body.allowedMimeTypes).toEqual(expected.allowedMimeTypes);
   expect(body.secured).toBe(expected.secured);
   expect(body.allowGuestDownload).toBe(expected.allowGuestDownload);
+  expect(body.allowGuestUpload).toBe(expected.allowGuestUpload);
   expect(body.accessLevel).toBe(expected.accessLevel);
   expect(typeof body.createdAt).toBe("string");
   expect(typeof body.uploadMaxFileSizeBytes).toBe("number");
@@ -195,6 +202,7 @@ const createEvent = async (
     const guestPassword = payload.guestPassword as string;
     const secured = Boolean(guestPassword);
     const allowGuestDownload = payload.allowGuestDownload === true && secured;
+    const allowGuestUpload = payload.allowGuestUpload !== false;
     const allowedMimeTypes = Array.isArray(payload.allowedMimeTypes)
       ? (payload.allowedMimeTypes as string[])
       : [];
@@ -205,6 +213,7 @@ const createEvent = async (
       allowedMimeTypes,
       secured,
       allowGuestDownload,
+      allowGuestUpload,
       accessLevel: "unauthenticated",
     });
     cleanup.track({
@@ -278,6 +287,37 @@ test.describe("POST /api/events", () => {
     expect(body.eventId).toBe(payload.eventId);
     expect(body.secured).toBe(true);
     expect(body.allowGuestDownload).toBe(true);
+  });
+
+  test("defaults allowGuestUpload to true", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { body } = await createEvent(request, baseURL, {
+      allowGuestDownload: true,
+      allowGuestUpload: undefined,
+    });
+    expect(body.allowGuestUpload).toBe(true);
+  });
+
+  test("creates event with guest uploads disabled", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { body } = await createEvent(request, baseURL, {
+      allowGuestUpload: false,
+    });
+    expect(body.allowGuestUpload).toBe(false);
+  });
+
+  test("rejects create when guest upload and download disabled", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const payload = createEventPayload({
+      eventId: getUniqueEventId("e2e-guest-flags"),
+      allowGuestDownload: false,
+      allowGuestUpload: false,
+    });
+    const apiBase = getApiBaseUrl(baseURL);
+    const response = await request.post(`${apiBase}/api/events`, { data: payload });
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("GUEST_ACCESS_DISABLED");
   });
 
   test("rejects invalid payload", async ({ request }, testInfo) => {
@@ -366,6 +406,7 @@ test.describe("GET /api/events/{eventId}", () => {
       allowedMimeTypes: payload.allowedMimeTypes as string[],
       secured: true,
       allowGuestDownload: false,
+      allowGuestUpload: true,
       accessLevel: "admin",
     });
   });
@@ -388,6 +429,7 @@ test.describe("GET /api/events/{eventId}", () => {
       allowedMimeTypes: payload.allowedMimeTypes as string[],
       secured: true,
       allowGuestDownload: false,
+      allowGuestUpload: true,
       accessLevel: "guest",
     });
   });
@@ -465,6 +507,7 @@ test.describe("PATCH /api/events/{eventId}", () => {
       allowedMimeTypes: ["image/png"],
       secured: true,
       allowGuestDownload: true,
+      allowGuestUpload: true,
       accessLevel: "admin",
     });
   });
@@ -648,8 +691,52 @@ test.describe("PATCH /api/events/{eventId}", () => {
       allowedMimeTypes: payload.allowedMimeTypes as string[],
       secured: true,
       allowGuestDownload: true,
+      allowGuestUpload: true,
       accessLevel: "admin",
     });
+  });
+
+  test("updates allowGuestUpload flag", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
+
+    const apiBase = getApiBaseUrl(baseURL);
+    const response = await request.patch(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}`,
+      {
+        headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }),
+        data: { allowGuestUpload: false },
+      }
+    );
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expectUpdateEventBody(body, {
+      eventId: payload.eventId as string,
+      name: payload.name as string,
+      description: payload.description as string,
+      allowedMimeTypes: payload.allowedMimeTypes as string[],
+      secured: true,
+      allowGuestDownload: true,
+      allowGuestUpload: false,
+      accessLevel: "admin",
+    });
+  });
+
+  test("rejects patch when guest upload and download disabled", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
+
+    const apiBase = getApiBaseUrl(baseURL);
+    const response = await request.patch(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}`,
+      {
+        headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }),
+        data: { allowGuestDownload: false, allowGuestUpload: false },
+      }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("GUEST_ACCESS_DISABLED");
   });
 
   test("rejects invalid event id", async ({ request }, testInfo) => {
@@ -1189,6 +1276,23 @@ test.describe("POST /api/events/{eventId}/files", () => {
     expect(upload.status()).toBe(404);
     const body = await upload.json();
     expect(body.errorKey).toBe("EVENT_NOT_FOUND");
+  });
+
+  test("rejects guest uploads when disabled", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestUpload: false });
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const { response: uploadResponse } = await uploadFile(
+      request,
+      apiBase,
+      payload.eventId as string,
+      { user: "guest", password: payload.guestPassword as string },
+      { name: "upload.txt", mimeType: "text/plain", content: "hello" }
+    );
+    expect(uploadResponse.status()).toBe(403);
+    const body = await uploadResponse.json();
+    expect(body.errorKey).toBe("GUEST_UPLOADS_DISABLED");
   });
 });
 
