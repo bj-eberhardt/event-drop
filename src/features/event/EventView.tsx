@@ -42,6 +42,7 @@ export function EventView({ eventId, baseDomain, onBackHome, onAdmin }: EventVie
           eventId: eventInfo.eventId,
           secured: Boolean(eventInfo.secured),
           allowGuestDownload: Boolean(eventInfo.allowGuestDownload),
+          allowGuestUpload: eventInfo.allowGuestUpload ?? true,
           allowedMimeTypes: eventInfo.allowedMimeTypes || [],
           uploadMaxFileSizeBytes: eventInfo.uploadMaxFileSizeBytes,
           uploadMaxTotalSizeBytes: eventInfo.uploadMaxTotalSizeBytes,
@@ -182,14 +183,16 @@ export function EventView({ eventId, baseDomain, onBackHome, onAdmin }: EventVie
         <h1>{data?.name || t("EventView.uploadsFallbackTitle", { domain: fallbackDomain })}</h1>
         <p className="lede">{data?.description || fallbackDomain}</p>
       </header>
-      <UploadForm
-        eventId={eventId}
-        apiClient={apiClient}
-        allowedMimeTypes={data?.allowedMimeTypes || []}
-        uploadMaxFileSizeBytes={data?.uploadMaxFileSizeBytes ?? 0}
-        uploadMaxTotalSizeBytes={data?.uploadMaxTotalSizeBytes ?? 0}
-        onRefreshFiles={() => setFileBrowserRefresh((key) => key + 1)}
-      />
+      {data?.allowGuestUpload !== false ? (
+        <UploadForm
+          eventId={eventId}
+          apiClient={apiClient}
+          allowedMimeTypes={data?.allowedMimeTypes || []}
+          uploadMaxFileSizeBytes={data?.uploadMaxFileSizeBytes ?? 0}
+          uploadMaxTotalSizeBytes={data?.uploadMaxTotalSizeBytes ?? 0}
+          onRefreshFiles={() => setFileBrowserRefresh((key) => key + 1)}
+        />
+      ) : null}
       {data?.allowGuestDownload ? (
         <FileBrowser key={fileBrowserRefresh} eventId={eventId} mode="guest" />
       ) : null}

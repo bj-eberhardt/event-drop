@@ -199,6 +199,146 @@ test.describe("admin event view", () => {
     });
   });
 
+  test("admin settings require at least one guest access option", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    testInfo.skip(!baseURL, "baseURL required");
+
+    const eventId = getUniqueEventId("e2e-guest-access");
+    const adminPassword = "adminpass123";
+
+    await test.step("create event with guest access enabled", async () => {
+      await createEvent(
+        request,
+        {
+          name: "Guest Access Event",
+          description: "",
+          eventId,
+          guestPassword: "guestpass123",
+          adminPassword,
+          adminPasswordConfirm: adminPassword,
+          allowedMimeTypes: [],
+          allowGuestDownload: true,
+          allowGuestUpload: true,
+        },
+        baseURL
+      );
+    });
+
+    await test.step("open admin settings", async () => {
+      const mode = getMode();
+      const adminUrl = buildEventUrl(baseURL, mode, eventId, true);
+      await page.goto(adminUrl);
+      await loginIfPrompted(page, adminPassword);
+      await expect(page.getByTestId("admin-view")).toBeVisible();
+      await page.getByTestId("admin-overview-settings").click();
+      await expect(page.getByTestId("admin-settings-form")).toBeVisible();
+    });
+
+    await test.step("disable both options and verify error", async () => {
+      const downloadCheckbox = page.getByTestId("admin-guest-download");
+      const uploadCheckbox = page.getByTestId("admin-guest-upload");
+
+      await downloadCheckbox.uncheck();
+      await uploadCheckbox.uncheck();
+
+      await expect(page.getByTestId("admin-guest-access-error")).toBeVisible();
+      await page.getByTestId("admin-settings-save").click();
+      await expect(page.getByTestId("admin-settings-feedback")).toHaveText(
+        /mindestens upload oder download/i
+      );
+    });
+
+    await test.step("re-enable uploads and persist state", async () => {
+      const uploadCheckbox = page.getByTestId("admin-guest-upload");
+      await uploadCheckbox.check();
+      await expect(page.getByTestId("admin-guest-access-error")).toHaveCount(0);
+
+      await page.getByTestId("admin-settings-save").click();
+      await expect(page.getByTestId("admin-settings-feedback")).toHaveText(
+        /einstellungen gespeichert/i
+      );
+    });
+
+    await test.step("reload and verify checkbox state", async () => {
+      await page.reload();
+      await loginIfPrompted(page, adminPassword);
+      await page.getByTestId("admin-overview-settings").click();
+      await expect(page.getByTestId("admin-settings-form")).toBeVisible();
+
+      await expect(page.getByTestId("admin-guest-download")).not.toBeChecked();
+      await expect(page.getByTestId("admin-guest-upload")).toBeChecked();
+    });
+
+    await cleanupEvent(request, eventId, adminPassword, baseURL);
+  });
+
+  test("admin settings show server-side validation error", async ({ page, request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    testInfo.skip(!baseURL, "baseURL required");
+
+    const eventId = getUniqueEventId("e2e-guest-access-api");
+    const adminPassword = "adminpass123";
+
+    await test.step("create event", async () => {
+      await createEvent(
+        request,
+        {
+          name: "Guest Access Server Error",
+          description: "",
+          eventId,
+          guestPassword: "guestpass123",
+          adminPassword,
+          adminPasswordConfirm: adminPassword,
+          allowedMimeTypes: [],
+          allowGuestDownload: true,
+          allowGuestUpload: true,
+        },
+        baseURL
+      );
+    });
+
+    await test.step("open admin settings", async () => {
+      const mode = getMode();
+      const adminUrl = buildEventUrl(baseURL, mode, eventId, true);
+      await page.goto(adminUrl);
+      await loginIfPrompted(page, adminPassword);
+      await expect(page.getByTestId("admin-view")).toBeVisible();
+      await page.getByTestId("admin-overview-settings").click();
+      await expect(page.getByTestId("admin-settings-form")).toBeVisible();
+    });
+
+    await test.step("simulate server validation error and show feedback", async () => {
+      await page.route(new RegExp(`/api/events/${eventId}$`), async (route) => {
+        if (route.request().method() !== "PATCH") {
+          await route.fallback();
+          return;
+        }
+        await route.fulfill({
+          status: 400,
+          contentType: "application/json",
+          body: JSON.stringify({
+            message: "Guest uploads or downloads must be enabled.",
+            errorKey: "GUEST_ACCESS_DISABLED",
+            property: "allowGuestUpload",
+            additionalParams: {},
+          }),
+        });
+      });
+
+      const uploadCheckbox = page.getByTestId("admin-guest-upload");
+      await uploadCheckbox.uncheck();
+      await page.getByTestId("admin-settings-save").click();
+      await expect(page.getByTestId("admin-settings-feedback")).toHaveText(
+        /uploads or downloads must be enabled/i
+      );
+    });
+
+    await cleanupEvent(request, eventId, adminPassword, baseURL);
+  });
+
   test("guest download checkbox requires guest password", async ({
     page,
     adminEvent,

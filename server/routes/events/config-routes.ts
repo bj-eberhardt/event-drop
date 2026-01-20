@@ -62,6 +62,7 @@ export const registerConfigRoutes = (router: express.Router) => {
           adminPasswordConfirm,
           allowedMimeTypes,
           allowGuestDownload,
+          allowGuestUpload,
         } = req.body;
 
         if (adminPassword !== adminPasswordConfirm) {
@@ -99,6 +100,14 @@ export const registerConfigRoutes = (router: express.Router) => {
           });
         }
 
+        if (allowGuestDownload === false && allowGuestUpload === false) {
+          return sendError(res, 400, {
+            message: "Guest uploads or downloads must be enabled.",
+            errorKey: "GUEST_ACCESS_DISABLED",
+            property: "allowGuestUpload",
+          });
+        }
+
         const event = await createEvent({
           name,
           description,
@@ -107,6 +116,7 @@ export const registerConfigRoutes = (router: express.Router) => {
           adminPassword,
           allowedMimeTypes,
           allowGuestDownload: Boolean(allowGuestDownload),
+          allowGuestUpload,
         });
 
         return res.status(200).json(buildEventResponse(event, "unauthenticated"));
@@ -137,7 +147,14 @@ export const registerConfigRoutes = (router: express.Router) => {
       try {
         const project = req.event!;
 
-        const { guestPassword, allowGuestDownload, name, description, allowedMimeTypes } = req.body;
+        const {
+          guestPassword,
+          allowGuestDownload,
+          allowGuestUpload,
+          name,
+          description,
+          allowedMimeTypes,
+        } = req.body;
         const updated = {
           ...project,
           settings: { ...project.settings },
@@ -169,6 +186,18 @@ export const registerConfigRoutes = (router: express.Router) => {
             });
           }
           updated.settings.allowGuestDownload = Boolean(allowGuestDownload);
+        }
+
+        if (allowGuestUpload !== undefined) {
+          updated.settings.allowGuestUpload = Boolean(allowGuestUpload);
+        }
+
+        if (!updated.settings.allowGuestDownload && !updated.settings.allowGuestUpload) {
+          return sendError(res, 400, {
+            message: "Guest uploads or downloads must be enabled.",
+            errorKey: "GUEST_ACCESS_DISABLED",
+            property: "allowGuestUpload",
+          });
         }
 
         if (allowedMimeTypes !== undefined) {

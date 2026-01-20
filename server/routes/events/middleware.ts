@@ -140,3 +140,30 @@ export const ensureGuestDownloadsEnabled: RequestHandler<{ eventId?: string }, E
 
   return next();
 };
+
+export const ensureGuestUploadsEnabled: RequestHandler<{ eventId?: string }, ErrorResponse> = (
+  req,
+  res,
+  next
+) => {
+  const event = req.event;
+  if (!event) {
+    return sendError(res, 500, {
+      message: "Event context missing.",
+      errorKey: "EVENT_CONTEXT_MISSING",
+    });
+  }
+
+  if (req.user?.role === "guest") {
+    const guestUploadsEnabled = event.settings.allowGuestUpload ?? true;
+    if (!guestUploadsEnabled) {
+      return sendError(res, 403, {
+        message: "Guest uploads are disabled.",
+        errorKey: "GUEST_UPLOADS_DISABLED",
+        eventId: event.eventId,
+      });
+    }
+  }
+
+  return next();
+};

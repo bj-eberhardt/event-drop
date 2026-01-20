@@ -7,6 +7,7 @@ export interface EventConfig {
   settings: {
     rootPath: string;
     allowGuestDownload: boolean;
+    allowGuestUpload: boolean;
   };
   auth: {
     guestPasswordHash: string | null;
@@ -19,12 +20,14 @@ export type AccessLevel = "unauthenticated" | "guest" | "admin";
 export const ERROR_KEYS = [
   "ADMIN_ACCESS_REQUIRED",
   "GUEST_ACCESS_REQUIRED",
+  "GUEST_ACCESS_DISABLED",
   "INVALID_FILENAME",
   "INVALID_FOLDER",
   "INVALID_INPUT",
   "INVALID_EVENT_ID",
   "FILE_NOT_FOUND",
   "FOLDER_ALREADY_EXISTS",
+  "GUEST_UPLOADS_DISABLED",
   "NO_FILES_AVAILABLE",
   "UNSUPPORTED_FILE_TYPE",
   "EVENT_ID_TAKEN",
@@ -55,6 +58,7 @@ export interface EventConfigResponse {
   description?: string;
   secured: boolean;
   allowGuestDownload: boolean;
+  allowGuestUpload: boolean;
   accessLevel: AccessLevel;
   createdAt: string;
   allowedMimeTypes: string[];

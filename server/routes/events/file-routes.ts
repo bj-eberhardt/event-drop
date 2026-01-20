@@ -2,7 +2,12 @@ import express, { NextFunction, Response } from "express";
 import path from "node:path";
 import { storage } from "../../storage/index.js";
 import { parseFolder, isSafeFilename } from "../../utils/validation.js";
-import { ensureGuestDownloadsEnabled, loadEvent, verifyAccess } from "./middleware.js";
+import {
+  ensureGuestDownloadsEnabled,
+  ensureGuestUploadsEnabled,
+  loadEvent,
+  verifyAccess,
+} from "./middleware.js";
 import { upload, cleanupUploadedFilesFromRequest, cleanupUploadedFiles } from "./upload.js";
 import {
   eventFileInFolderParamsSchema,
@@ -101,6 +106,7 @@ export const registerFileRoutes = (router: express.Router) => {
     ),
     loadEvent,
     verifyAccess(["admin", "guest"]),
+    ensureGuestUploadsEnabled,
 
     addFileUploadCleanupHook,
     upload.array("files"),

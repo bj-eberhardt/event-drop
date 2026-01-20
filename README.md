@@ -28,6 +28,7 @@ flowchart LR
 
 - Create events with optional guest password.
 - Guests upload via drag & drop or file picker.
+- Admins can disable guest uploads per event.
 - Admins manage files (preview, delete, ZIP download).
 
 **⚙️ Hosting & deployment**

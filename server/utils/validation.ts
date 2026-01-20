@@ -66,6 +66,7 @@ export const createEventSchema = z.object({
     .optional()
     .default([]),
   allowGuestDownload: z.boolean().optional(),
+  allowGuestUpload: z.boolean().optional(),
 });
 
 export const updateEventSchema = z
@@ -90,6 +91,7 @@ export const updateEventSchema = z
     allowedMimeTypes: z
       .array(z.string().trim().regex(MIME_TYPE_REGEX, "Invalid MIME type."))
       .optional(),
+    allowGuestUpload: z.boolean().optional(),
   })
   .superRefine((value, ctx) => {
     if (

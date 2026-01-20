@@ -515,6 +515,84 @@ test.describe("guest event view", () => {
     });
   });
 
+  test("guest view hides upload form when uploads disabled", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    testInfo.skip(!baseURL, "baseURL required");
+
+    const eventId = getUniqueEventId("e2e-uploads-off");
+    const adminPassword = "adminpass123";
+    const guestPassword = "guestpass123";
+
+    await test.step("create event with uploads disabled", async () => {
+      await createEvent(
+        request,
+        {
+          name: "Uploads Off Event",
+          description: "",
+          eventId,
+          guestPassword,
+          adminPassword,
+          adminPasswordConfirm: adminPassword,
+          allowedMimeTypes: [],
+          allowGuestDownload: true,
+          allowGuestUpload: false,
+        },
+        baseURL
+      );
+      cleanup.track({ eventId, adminPassword, baseURL });
+    });
+
+    await test.step("open guest view", async () => {
+      const mode = getMode();
+      const url = buildEventUrl(baseURL, mode, eventId);
+      await page.goto(url);
+      await loginGuest(page, guestPassword);
+      await expect(page.getByTestId("filebrowser-guest")).toBeVisible();
+      await expect(page.getByTestId("upload-form")).toHaveCount(0);
+    });
+  });
+
+  test("guest view hides file browser when downloads disabled", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    testInfo.skip(!baseURL, "baseURL required");
+
+    const eventId = getUniqueEventId("e2e-downloads-off");
+    const adminPassword = "adminpass123";
+
+    await test.step("create event with downloads disabled", async () => {
+      await createEvent(
+        request,
+        {
+          name: "Downloads Off Event",
+          description: "",
+          eventId,
+          guestPassword: "",
+          adminPassword,
+          adminPasswordConfirm: adminPassword,
+          allowedMimeTypes: [],
+          allowGuestDownload: false,
+          allowGuestUpload: true,
+        },
+        baseURL
+      );
+      cleanup.track({ eventId, adminPassword, baseURL });
+    });
+
+    await test.step("open guest view", async () => {
+      const mode = getMode();
+      const url = buildEventUrl(baseURL, mode, eventId);
+      await page.goto(url);
+      await expect(page.getByTestId("upload-form")).toBeVisible();
+      await expect(page.getByTestId("filebrowser-guest")).toHaveCount(0);
+    });
+  });
+
   test("guest can download uploaded file and cannot delete it", async ({
     page,
     request,
