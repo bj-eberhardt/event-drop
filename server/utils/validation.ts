@@ -67,6 +67,13 @@ export const createEventSchema = z.object({
     .default([]),
   allowGuestDownload: z.boolean().optional(),
   allowGuestUpload: z.boolean().optional(),
+  requireUploadFolder: z.boolean().optional(),
+  uploadFolderHint: z
+    .string()
+    .trim()
+    .max(512, "Upload folder hint can be at most 512 characters.")
+    .optional()
+    .transform((value) => value || undefined),
 });
 
 export const updateEventSchema = z
@@ -92,6 +99,13 @@ export const updateEventSchema = z
       .array(z.string().trim().regex(MIME_TYPE_REGEX, "Invalid MIME type."))
       .optional(),
     allowGuestUpload: z.boolean().optional(),
+    requireUploadFolder: z.boolean().optional(),
+    uploadFolderHint: z
+      .string()
+      .trim()
+      .max(512, "Upload folder hint can be at most 512 characters.")
+      .optional()
+      .transform((value) => (value === undefined ? undefined : value || "")),
   })
   .superRefine((value, ctx) => {
     if (
@@ -99,7 +113,10 @@ export const updateEventSchema = z
       value.allowGuestDownload === undefined &&
       value.name === undefined &&
       value.description === undefined &&
-      value.allowedMimeTypes === undefined
+      value.allowedMimeTypes === undefined &&
+      value.allowGuestUpload === undefined &&
+      value.requireUploadFolder === undefined &&
+      value.uploadFolderHint === undefined
     ) {
       // TODO translate
       /*ctx.addIssue({

@@ -16,6 +16,8 @@ export const buildEventResponse = (
     secured,
     allowGuestDownload,
     allowGuestUpload,
+    requireUploadFolder: Boolean(event.settings.requireUploadFolder),
+    uploadFolderHint: event.settings.uploadFolderHint || "",
     accessLevel,
     uploadMaxFileSizeBytes: UPLOAD_MAX_FILE_SIZE_BYTES,
     uploadMaxTotalSizeBytes: UPLOAD_MAX_TOTAL_SIZE_BYTES,

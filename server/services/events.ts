@@ -24,6 +24,8 @@ const normalizeProject = (config: EventConfig): EventConfig => ({
     rootPath: config.settings?.rootPath || DATA_ROOT_PATH,
     allowGuestDownload: Boolean(config.settings?.allowGuestDownload),
     allowGuestUpload: config.settings?.allowGuestUpload ?? true,
+    requireUploadFolder: Boolean(config.settings?.requireUploadFolder),
+    uploadFolderHint: config.settings?.uploadFolderHint?.trim() || "",
   },
   auth: {
     guestPasswordHash: config.auth?.guestPasswordHash ?? null,
@@ -68,6 +70,8 @@ export const createEventConfig = async (params: {
   allowedMimeTypes?: string[];
   allowGuestDownload?: boolean;
   allowGuestUpload?: boolean;
+  requireUploadFolder?: boolean;
+  uploadFolderHint?: string;
 }): Promise<EventConfig> => {
   const {
     name,
@@ -78,6 +82,8 @@ export const createEventConfig = async (params: {
     allowedMimeTypes,
     allowGuestDownload,
     allowGuestUpload,
+    requireUploadFolder,
+    uploadFolderHint,
   } = params;
   const mimeTypes = Array.isArray(allowedMimeTypes)
     ? allowedMimeTypes.filter(Boolean).map((m) => m.trim())
@@ -92,6 +98,8 @@ export const createEventConfig = async (params: {
       rootPath: DATA_ROOT_PATH,
       allowGuestDownload: Boolean(allowGuestDownload),
       allowGuestUpload: allowGuestUpload !== false,
+      requireUploadFolder: Boolean(requireUploadFolder),
+      uploadFolderHint: uploadFolderHint?.trim() || "",
     },
     auth: {
       guestPasswordHash: guestPassword ? await bcrypt.hash(guestPassword, 10) : null,
@@ -109,6 +117,8 @@ export const createEvent = async (params: {
   allowedMimeTypes?: string[];
   allowGuestDownload?: boolean;
   allowGuestUpload?: boolean;
+  requireUploadFolder?: boolean;
+  uploadFolderHint?: string;
 }): Promise<EventConfig> => {
   const event = await createEventConfig(params);
   const result = await storage.events.createEvent(event);
