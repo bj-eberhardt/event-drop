@@ -22,7 +22,7 @@ const ProjectResponseSchema = z.object({
   allowGuestDownload: z.boolean(),
   allowGuestUpload: z.boolean(),
   requireUploadFolder: z.boolean(),
-  uploadFolderHint: z.string(),
+  uploadFolderHint: z.string().nullable(),
   accessLevel: z.enum(["unauthenticated", "guest", "admin"]),
   uploadMaxFileSizeBytes: z.number(),
   uploadMaxTotalSizeBytes: z.number(),

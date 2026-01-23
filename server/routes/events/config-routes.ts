@@ -203,7 +203,10 @@ export const registerConfigRoutes = (router: express.Router) => {
         }
 
         if (uploadFolderHint !== undefined) {
-          updated.settings.uploadFolderHint = uploadFolderHint.trim();
+          updated.settings.uploadFolderHint =
+            typeof uploadFolderHint === "string"
+              ? uploadFolderHint.trim() || null
+              : uploadFolderHint;
         }
 
         if (!updated.settings.allowGuestDownload && !updated.settings.allowGuestUpload) {

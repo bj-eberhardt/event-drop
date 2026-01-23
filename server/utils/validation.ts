@@ -69,11 +69,16 @@ export const createEventSchema = z.object({
   allowGuestUpload: z.boolean().optional(),
   requireUploadFolder: z.boolean().optional(),
   uploadFolderHint: z
-    .string()
-    .trim()
-    .max(512, "Upload folder hint can be at most 512 characters.")
+    .union([
+      z.string().trim().max(512, "Upload folder hint can be at most 512 characters."),
+      z.null(),
+    ])
     .optional()
-    .transform((value) => value || undefined),
+    .transform((value) => {
+      if (value === undefined) return undefined;
+      if (value === null) return null;
+      return value || null;
+    }),
 });
 
 export const updateEventSchema = z
@@ -101,11 +106,16 @@ export const updateEventSchema = z
     allowGuestUpload: z.boolean().optional(),
     requireUploadFolder: z.boolean().optional(),
     uploadFolderHint: z
-      .string()
-      .trim()
-      .max(512, "Upload folder hint can be at most 512 characters.")
+      .union([
+        z.string().trim().max(512, "Upload folder hint can be at most 512 characters."),
+        z.null(),
+      ])
       .optional()
-      .transform((value) => (value === undefined ? undefined : value || "")),
+      .transform((value) => {
+        if (value === undefined) return undefined;
+        if (value === null) return null;
+        return value || null;
+      }),
   })
   .superRefine((value, ctx) => {
     if (

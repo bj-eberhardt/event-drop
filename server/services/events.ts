@@ -25,7 +25,7 @@ const normalizeProject = (config: EventConfig): EventConfig => ({
     allowGuestDownload: Boolean(config.settings?.allowGuestDownload),
     allowGuestUpload: config.settings?.allowGuestUpload ?? true,
     requireUploadFolder: Boolean(config.settings?.requireUploadFolder),
-    uploadFolderHint: config.settings?.uploadFolderHint?.trim() || "",
+    uploadFolderHint: config.settings?.uploadFolderHint ?? null,
   },
   auth: {
     guestPasswordHash: config.auth?.guestPasswordHash ?? null,
@@ -71,7 +71,7 @@ export const createEventConfig = async (params: {
   allowGuestDownload?: boolean;
   allowGuestUpload?: boolean;
   requireUploadFolder?: boolean;
-  uploadFolderHint?: string;
+  uploadFolderHint?: string | null;
 }): Promise<EventConfig> => {
   const {
     name,
@@ -99,7 +99,12 @@ export const createEventConfig = async (params: {
       allowGuestDownload: Boolean(allowGuestDownload),
       allowGuestUpload: allowGuestUpload !== false,
       requireUploadFolder: Boolean(requireUploadFolder),
-      uploadFolderHint: uploadFolderHint?.trim() || "",
+      uploadFolderHint: (() => {
+        if (uploadFolderHint === null) return null;
+        if (typeof uploadFolderHint !== "string") return null;
+        const trimmed = uploadFolderHint.trim();
+        return trimmed ? trimmed : null;
+      })(),
     },
     auth: {
       guestPasswordHash: guestPassword ? await bcrypt.hash(guestPassword, 10) : null,
@@ -118,7 +123,7 @@ export const createEvent = async (params: {
   allowGuestDownload?: boolean;
   allowGuestUpload?: boolean;
   requireUploadFolder?: boolean;
-  uploadFolderHint?: string;
+  uploadFolderHint?: string | null;
 }): Promise<EventConfig> => {
   const event = await createEventConfig(params);
   const result = await storage.events.createEvent(event);

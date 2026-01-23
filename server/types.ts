@@ -9,7 +9,7 @@ export interface EventConfig {
     allowGuestDownload: boolean;
     allowGuestUpload: boolean;
     requireUploadFolder: boolean;
-    uploadFolderHint: string;
+    uploadFolderHint: string | null;
   };
   auth: {
     guestPasswordHash: string | null;
@@ -63,7 +63,7 @@ export interface EventConfigResponse {
   allowGuestDownload: boolean;
   allowGuestUpload: boolean;
   requireUploadFolder: boolean;
-  uploadFolderHint: string;
+  uploadFolderHint: string | null;
   accessLevel: AccessLevel;
   createdAt: string;
   allowedMimeTypes: string[];
