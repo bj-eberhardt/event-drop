@@ -478,6 +478,12 @@ h2 {
   font-size: 13px;
 }
 
+.hint-mid {
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 500;
+}
+
 input {
   width: 100%;
   padding: 12px 14px;

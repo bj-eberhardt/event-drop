@@ -32,6 +32,10 @@ export function AdminSettings({
     Boolean(eventInfo.allowGuestDownload)
   );
   const [allowGuestUpload, setAllowGuestUpload] = useState(eventInfo.allowGuestUpload ?? true);
+  const [requireUploadFolder, setRequireUploadFolder] = useState(
+    Boolean(eventInfo.requireUploadFolder)
+  );
+  const [uploadFolderHint, setUploadFolderHint] = useState(eventInfo.uploadFolderHint || "");
   const [eventName, setEventName] = useState(eventInfo.name || "");
   const [eventDescription, setEventDescription] = useState(eventInfo.description || "");
   const [allowedMimeTypes, setAllowedMimeTypes] = useState<string[]>(
@@ -45,6 +49,8 @@ export function AdminSettings({
     setGuestPasswordInput("");
     setAllowGuestDownload(Boolean(eventInfo.allowGuestDownload));
     setAllowGuestUpload(eventInfo.allowGuestUpload ?? true);
+    setRequireUploadFolder(Boolean(eventInfo.requireUploadFolder));
+    setUploadFolderHint(eventInfo.uploadFolderHint || "");
     setEventName(eventInfo.name || "");
     setEventDescription(eventInfo.description || "");
     setAllowedMimeTypes(eventInfo.allowedMimeTypes || []);
@@ -54,6 +60,8 @@ export function AdminSettings({
     eventInfo.allowedMimeTypes,
     eventInfo.description,
     eventInfo.name,
+    eventInfo.requireUploadFolder,
+    eventInfo.uploadFolderHint,
     eventInfo.secured,
   ]);
 
@@ -68,8 +76,14 @@ export function AdminSettings({
   const allowGuestDownloadDisabled = !guestPasswordActive;
   const trimmedName = eventName.trim();
   const trimmedDescription = eventDescription.trim();
+  const trimmedUploadFolderHint = uploadFolderHint.trim();
+  const normalizedUploadFolderHint = trimmedUploadFolderHint ? trimmedUploadFolderHint : null;
   const hasNameChange = trimmedName !== (eventInfo.name || "");
   const hasDescriptionChange = trimmedDescription !== (eventInfo.description || "");
+  const hasRequireUploadFolderChange =
+    requireUploadFolder !== Boolean(eventInfo.requireUploadFolder);
+  const hasUploadFolderHintChange =
+    normalizedUploadFolderHint !== (eventInfo.uploadFolderHint ?? null);
   const hasMimeChange =
     JSON.stringify([...allowedMimeTypes].sort()) !==
     JSON.stringify([...(eventInfo.allowedMimeTypes || [])].sort());
@@ -110,6 +124,10 @@ export function AdminSettings({
     setAllowGuestUpload(checked);
   };
 
+  const handleRequireUploadFolderChange = (checked: boolean) => {
+    setRequireUploadFolder(checked);
+  };
+
   const submitEventSettings = async (formEvent: FormEvent) => {
     formEvent.preventDefault();
     settingsFeedback.clear();
@@ -121,6 +139,11 @@ export function AdminSettings({
 
     if (hasNewGuestPassword && trimmedGuestPassword.length < 4) {
       settingsFeedback.showError(t("AdminSettings.guestPasswordTooShort"));
+      return;
+    }
+
+    if (normalizedUploadFolderHint && normalizedUploadFolderHint.length < 8) {
+      settingsFeedback.showError(t("AdminSettings.uploadFolderHintTooShort"));
       return;
     }
 
@@ -144,12 +167,19 @@ export function AdminSettings({
     if (allowGuestUpload !== eventInfo.allowGuestUpload) {
       payload.allowGuestUpload = allowGuestUpload;
     }
+    if (hasRequireUploadFolderChange) {
+      payload.requireUploadFolder = requireUploadFolder;
+    }
+    if (hasUploadFolderHintChange) {
+      payload.uploadFolderHint = normalizedUploadFolderHint;
+    }
 
     setSettingsStatus("saving");
     try {
       const response = await apiClient.updateEvent(eventId, payload);
       const secured = Boolean(response.secured);
       const allowDownloads = Boolean(response.allowGuestDownload && secured);
+      const nextUploadFolderHint = response.uploadFolderHint ?? null;
 
       onEventUpdate({
         name: response.name,
@@ -158,6 +188,8 @@ export function AdminSettings({
         secured,
         allowGuestDownload: allowDownloads,
         allowGuestUpload: response.allowGuestUpload ?? true,
+        requireUploadFolder: response.requireUploadFolder ?? false,
+        uploadFolderHint: nextUploadFolderHint,
         uploadMaxFileSizeBytes: response.uploadMaxFileSizeBytes ?? eventInfo.uploadMaxFileSizeBytes,
         uploadMaxTotalSizeBytes:
           response.uploadMaxTotalSizeBytes ?? eventInfo.uploadMaxTotalSizeBytes,
@@ -169,6 +201,8 @@ export function AdminSettings({
       setGuestPasswordInput("");
       setAllowGuestDownload(allowDownloads);
       setAllowGuestUpload(response.allowGuestUpload ?? true);
+      setRequireUploadFolder(Boolean(response.requireUploadFolder));
+      setUploadFolderHint(nextUploadFolderHint || "");
       setEventName(response.name);
       setEventDescription(response.description || "");
       setAllowedMimeTypes(response.allowedMimeTypes || []);
@@ -295,12 +329,44 @@ export function AdminSettings({
             <span>{t("AdminSettings.uploadHelper")}</span>
           </label>
         </div>
+        <p className="helper">{t("AdminSettings.uploadInfo")}</p>
         {guestAccessInvalid ? (
           <p className="helper status bad" data-testid="admin-guest-access-error">
             {t("AdminSettings.guestAccessRequired")}
           </p>
         ) : null}
       </label>
+      <div className="field">
+        <div className="label-row">
+          <span>{t("AdminSettings.uploadFolderLabel")}</span>
+          <span className="hint">{t("AdminSettings.uploadFolderHint")}</span>
+        </div>
+        <div className="label-row">
+          <label className="checkbox-helper">
+            <input
+              type="checkbox"
+              checked={requireUploadFolder}
+              disabled={isBusy}
+              onChange={(e) => handleRequireUploadFolderChange(e.target.checked)}
+              data-testid="admin-upload-folder-required"
+            />
+            <span>{t("AdminSettings.uploadFolderHelper")}</span>
+          </label>
+        </div>
+        <p className="helper">{t("AdminSettings.uploadFolderInfo")}</p>
+        <label className="field" style={{ marginTop: "8px" }}>
+          <span className="hint-mid">{t("AdminSettings.uploadFolderHintLabel")}</span>
+          <input
+            value={uploadFolderHint}
+            onChange={(e) => setUploadFolderHint(e.target.value)}
+            placeholder={t("AdminSettings.uploadFolderHintPlaceholder")}
+            maxLength={512}
+            disabled={isBusy}
+            data-testid="admin-upload-folder-hint"
+          />
+          <p className="helper">{t("AdminSettings.uploadFolderHintHelper")}</p>
+        </label>
+      </div>
       <div className="field">
         <div className="label-row">
           <span>{t("AdminSettings.mimeLabel")}</span>

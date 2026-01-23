@@ -3,7 +3,11 @@ import { ApiClient } from "../../../api/client";
 import { formatFileSize } from "../../../lib/format";
 import { useUpload } from "../hooks/useUpload";
 import { UploadQueue } from "./UploadQueue";
-import { FOLDER_PATTERN, isOptionalFolderNameValid } from "../../../lib/folderValidation";
+import {
+  FOLDER_PATTERN,
+  isFolderNameValid,
+  isOptionalFolderNameValid,
+} from "../../../lib/folderValidation";
 
 type UploadFormProps = {
   eventId: string;
@@ -11,6 +15,8 @@ type UploadFormProps = {
   allowedMimeTypes: string[];
   uploadMaxFileSizeBytes: number;
   uploadMaxTotalSizeBytes: number;
+  uploadFolderHint?: string | null;
+  requireUploadFolder?: boolean;
   onRefreshFiles: () => void;
   successDismissMs?: number;
 };
@@ -21,6 +27,8 @@ export function UploadForm({
   allowedMimeTypes,
   uploadMaxFileSizeBytes,
   uploadMaxTotalSizeBytes,
+  uploadFolderHint,
+  requireUploadFolder = false,
   onRefreshFiles,
   successDismissMs,
 }: UploadFormProps) {
@@ -53,7 +61,10 @@ export function UploadForm({
     uploadMaxFileSizeBytes > 0 && selectionStats.maxBytes > uploadMaxFileSizeBytes;
   const totalSizeExceeded =
     uploadMaxTotalSizeBytes > 0 && selectionStats.totalBytes > uploadMaxTotalSizeBytes;
-  const isFromNameValid = isOptionalFolderNameValid(fromName);
+  const isFromNameValid = requireUploadFolder
+    ? isFolderNameValid(fromName)
+    : isOptionalFolderNameValid(fromName);
+  const effectiveUploadFolderHint = uploadFolderHint?.trim();
   const statusHintParts: string[] = [];
   if (maxSizeExceeded) statusHintParts.push(t("UploadForm.singleLimitExceeded"));
   if (totalSizeExceeded) statusHintParts.push(t("UploadForm.totalLimitExceeded"));
@@ -71,7 +82,7 @@ export function UploadForm({
         <h2 data-testid="upload-title">{t("UploadForm.title")}</h2>
       </div>
       <label className="field">
-        <span>{t("UploadForm.fromLabel")}</span>
+        <span>{effectiveUploadFolderHint ? "Ordnername" : t("UploadForm.fromLabel")}</span>
         <input
           type="text"
           placeholder={t("UploadForm.fromPlaceholder")}
@@ -83,9 +94,17 @@ export function UploadForm({
           disabled={isUploading}
           data-testid="upload-from-input"
         />
-        <p className="hint">{t("UploadForm.fromHint")}</p>
+        {effectiveUploadFolderHint ? (
+          <p className="hint">{effectiveUploadFolderHint}</p>
+        ) : (
+          <p className="hint">{t("UploadForm.fromHint")}</p>
+        )}
         {!isFromNameValid ? (
-          <p className="helper status bad">{t("UploadForm.fromInvalid")}</p>
+          <p className="helper status bad">
+            {requireUploadFolder && fromName.trim().length === 0
+              ? t("UploadForm.fromRequired")
+              : t("UploadForm.fromInvalid")}
+          </p>
         ) : null}
       </label>
       <label className="field">

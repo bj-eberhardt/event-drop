@@ -259,9 +259,10 @@ test.describe("admin event view", () => {
       );
     });
 
+    const mode = getMode();
+    const adminUrl = buildEventUrl(baseURL, mode, eventId, true);
+
     await test.step("open admin settings", async () => {
-      const mode = getMode();
-      const adminUrl = buildEventUrl(baseURL, mode, eventId, true);
       await page.goto(adminUrl);
       await loginIfPrompted(page, adminPassword);
       await expect(page.getByTestId("admin-view")).toBeVisible();
@@ -295,13 +296,24 @@ test.describe("admin event view", () => {
     });
 
     await test.step("reload and verify checkbox state", async () => {
-      await page.reload();
+      await page.goto(adminUrl);
       await loginIfPrompted(page, adminPassword);
       await page.getByTestId("admin-overview-settings").click();
       await expect(page.getByTestId("admin-settings-form")).toBeVisible();
 
       await expect(page.getByTestId("admin-guest-download")).not.toBeChecked();
       await expect(page.getByTestId("admin-guest-upload")).toBeChecked();
+    });
+
+    await test.step("verify guest upload persisted via API", async () => {
+      const response = await getEvent(request, eventId, baseURL, {
+        type: "admin",
+        password: adminPassword,
+      });
+      expect(response.status()).toBe(200);
+      const event = await response.json();
+      expect(event.allowGuestDownload).toBe(false);
+      expect(event.allowGuestUpload).toBe(true);
     });
 
     await cleanupEvent(request, eventId, adminPassword, baseURL);
@@ -377,9 +389,10 @@ test.describe("admin event view", () => {
   }, testInfo) => {
     testInfo.skip(!adminEvent.baseURL, "baseURL required");
 
+    const mode = getMode();
+    const adminUrl = buildEventUrl(adminEvent.baseURL as string, mode, adminEvent.eventId, true);
+
     await test.step("open admin settings", async () => {
-      const mode = getMode();
-      const adminUrl = buildEventUrl(adminEvent.baseURL as string, mode, adminEvent.eventId, true);
       await page.goto(adminUrl);
       await loginIfPrompted(page, adminEvent.adminPassword);
       await expect(page.getByTestId("admin-view")).toBeVisible();
@@ -399,6 +412,14 @@ test.describe("admin event view", () => {
       );
     });
 
+    await test.step("reload and verify download setting persisted", async () => {
+      await page.goto(adminUrl);
+      await loginIfPrompted(page, adminEvent.adminPassword);
+      await page.getByTestId("admin-overview-settings").click();
+      await expect(page.getByTestId("admin-settings-form")).toBeVisible();
+      await expect(page.getByTestId("admin-guest-download")).toBeChecked();
+    });
+
     await test.step("disable download when password cleared", async () => {
       const downloadCheckbox = page.getByTestId("admin-guest-download");
       await page.getByTestId("admin-guest-password-edit").click();
@@ -411,6 +432,120 @@ test.describe("admin event view", () => {
         /einstellungen gespeichert/i
       );
     });
+
+    await test.step("reload and verify download remains disabled", async () => {
+      await page.goto(adminUrl);
+      await loginIfPrompted(page, adminEvent.adminPassword);
+      await page.getByTestId("admin-overview-settings").click();
+      await expect(page.getByTestId("admin-settings-form")).toBeVisible();
+      const downloadCheckbox = page.getByTestId("admin-guest-download");
+      await expect(downloadCheckbox).toBeDisabled();
+      await expect(downloadCheckbox).not.toBeChecked();
+    });
+  });
+
+  test("admin settings persist upload folder requirement and hint", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    testInfo.skip(!baseURL, "baseURL required");
+
+    const eventId = getUniqueEventId("e2e-upload-folder");
+    const adminPassword = "adminpass123";
+    const mode = getMode();
+    const adminUrl = buildEventUrl(baseURL, mode, eventId, true);
+
+    await test.step("create event with upload folder hint", async () => {
+      await createEvent(
+        request,
+        {
+          name: "Upload Folder Settings",
+          description: "",
+          eventId,
+          guestPassword: "1234",
+          adminPassword,
+          adminPasswordConfirm: adminPassword,
+          allowedMimeTypes: [],
+          requireUploadFolder: false,
+          uploadFolderHint: "Vorab Hinweis",
+        },
+        baseURL
+      );
+    });
+
+    await test.step("open admin settings and verify defaults", async () => {
+      await page.goto(adminUrl);
+      await loginIfPrompted(page, adminPassword);
+      await expect(page.getByTestId("admin-view")).toBeVisible();
+      await page.getByTestId("admin-overview-settings").click();
+      await expect(page.getByTestId("admin-settings-form")).toBeVisible();
+      await expect(page.getByTestId("admin-upload-folder-required")).not.toBeChecked();
+      await expect(page.getByTestId("admin-upload-folder-hint")).toHaveValue("Vorab Hinweis");
+    });
+
+    await test.step("toggle requirement, update hint, and save", async () => {
+      await page.getByTestId("admin-upload-folder-required").check();
+      await page.getByTestId("admin-upload-folder-hint").fill("Neuer Hinweistext");
+      await page.getByTestId("admin-settings-save").click();
+      await expect(page.getByTestId("admin-settings-feedback")).toHaveText(
+        /einstellungen gespeichert/i
+      );
+    });
+
+    await test.step("reject too short hint", async () => {
+      await page.getByTestId("admin-upload-folder-hint").fill("Kurz");
+      await page.getByTestId("admin-settings-save").click();
+      await expect(page.getByTestId("admin-settings-feedback")).toHaveText(/mindestens 8/i);
+    });
+
+    await test.step("reload and verify persistence", async () => {
+      await page.goto(adminUrl);
+      await loginIfPrompted(page, adminPassword);
+      await page.getByTestId("admin-overview-settings").click();
+      await expect(page.getByTestId("admin-upload-folder-required")).toBeChecked();
+      await expect(page.getByTestId("admin-upload-folder-hint")).toHaveValue("Neuer Hinweistext");
+    });
+
+    await test.step("enforce max length on hint", async () => {
+      const hintInput = page.getByTestId("admin-upload-folder-hint");
+      await hintInput.fill("a".repeat(600));
+      await expect(hintInput).toHaveValue("a".repeat(512));
+    });
+
+    await test.step("clear hint and verify API null", async () => {
+      await page.getByTestId("admin-upload-folder-hint").fill("");
+      await page.getByTestId("admin-settings-save").click();
+      await expect(page.getByTestId("admin-settings-feedback")).toHaveText(
+        /einstellungen gespeichert/i
+      );
+
+      const response = await getEvent(request, eventId, baseURL, {
+        type: "admin",
+        password: adminPassword,
+      });
+      expect(response.status()).toBe(200);
+      const body = await response.json();
+      expect(body.requireUploadFolder).toBe(true);
+      expect(body.uploadFolderHint).toBeNull();
+    });
+
+    await test.step("persist hint when requirement unchecked", async () => {
+      await page.getByTestId("admin-upload-folder-required").uncheck();
+      await page.getByTestId("admin-upload-folder-hint").fill("Hinweis bleibt");
+      await page.getByTestId("admin-settings-save").click();
+      await expect(page.getByTestId("admin-settings-feedback")).toHaveText(
+        /einstellungen gespeichert/i
+      );
+
+      await page.goto(adminUrl);
+      await loginIfPrompted(page, adminPassword);
+      await page.getByTestId("admin-overview-settings").click();
+      await expect(page.getByTestId("admin-upload-folder-required")).not.toBeChecked();
+      await expect(page.getByTestId("admin-upload-folder-hint")).toHaveValue("Hinweis bleibt");
+    });
+
+    await cleanupEvent(request, eventId, adminPassword, baseURL);
   });
 
   test("admin settings validation and mime types", async ({

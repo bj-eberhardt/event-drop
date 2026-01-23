@@ -69,16 +69,23 @@ export const createEventSchema = z.object({
   allowGuestUpload: z.boolean().optional(),
   requireUploadFolder: z.boolean().optional(),
   uploadFolderHint: z
-    .union([
-      z.string().trim().max(512, "Upload folder hint can be at most 512 characters."),
-      z.null(),
-    ])
-    .optional()
-    .transform((value) => {
-      if (value === undefined) return undefined;
-      if (value === null) return null;
-      return value || null;
-    }),
+    .preprocess(
+      (value) => {
+        if (typeof value === "string") {
+          const trimmed = value.trim();
+          return trimmed ? trimmed : null;
+        }
+        return value;
+      },
+      z.union([
+        z
+          .string()
+          .min(8, "Upload folder hint must be at least 8 characters.")
+          .max(512, "Upload folder hint can be at most 512 characters."),
+        z.null(),
+      ])
+    )
+    .optional(),
 });
 
 export const updateEventSchema = z
@@ -106,16 +113,23 @@ export const updateEventSchema = z
     allowGuestUpload: z.boolean().optional(),
     requireUploadFolder: z.boolean().optional(),
     uploadFolderHint: z
-      .union([
-        z.string().trim().max(512, "Upload folder hint can be at most 512 characters."),
-        z.null(),
-      ])
-      .optional()
-      .transform((value) => {
-        if (value === undefined) return undefined;
-        if (value === null) return null;
-        return value || null;
-      }),
+      .preprocess(
+        (value) => {
+          if (typeof value === "string") {
+            const trimmed = value.trim();
+            return trimmed ? trimmed : null;
+          }
+          return value;
+        },
+        z.union([
+          z
+            .string()
+            .min(8, "Upload folder hint must be at least 8 characters.")
+            .max(512, "Upload folder hint can be at most 512 characters."),
+          z.null(),
+        ])
+      )
+      .optional(),
   })
   .superRefine((value, ctx) => {
     if (

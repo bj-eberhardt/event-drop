@@ -361,6 +361,20 @@ test.describe("POST /api/events", () => {
     expect(body.message).toBe("Upload folder hint can be at most 512 characters.");
   });
 
+  test("rejects uploadFolderHint shorter than 8 characters", async ({ request }, testInfo) => {
+    const apiBase = getApiBaseUrl(testInfo.project.use.baseURL as string | undefined);
+    const payload = createEventPayload({
+      eventId: getUniqueEventId("e2e-upload-hint-min"),
+      uploadFolderHint: "short",
+    });
+    const response = await request.post(`${apiBase}/api/events`, { data: payload });
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_INPUT");
+    expect(body.property).toBe("uploadFolderHint");
+    expect(body.message).toBe("Upload folder hint must be at least 8 characters.");
+  });
+
   test("rejects create when guest upload and download disabled", async ({ request }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     const payload = createEventPayload({
@@ -863,6 +877,25 @@ test.describe("PATCH /api/events/{eventId}", () => {
     expect(body.errorKey).toBe("INVALID_INPUT");
     expect(body.property).toBe("uploadFolderHint");
     expect(body.message).toBe("Upload folder hint can be at most 512 characters.");
+  });
+
+  test("rejects uploadFolderHint shorter than 8 characters", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
+
+    const apiBase = getApiBaseUrl(baseURL);
+    const response = await request.patch(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}`,
+      {
+        headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }),
+        data: { uploadFolderHint: "short" },
+      }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_INPUT");
+    expect(body.property).toBe("uploadFolderHint");
+    expect(body.message).toBe("Upload folder hint must be at least 8 characters.");
   });
 
   test("rejects patch when guest upload and download disabled", async ({ request }, testInfo) => {
