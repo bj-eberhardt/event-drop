@@ -25,6 +25,7 @@
     "express": "^4.21.2",
     "i18next": "^25.7.3",
     "multer": "^2.0.0",
+    "qrcode.react": "^4.2.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-i18next": "^16.5.0",

@@ -9,9 +9,11 @@ import { AdminSettings } from "./components/AdminSettings";
 import { DeleteEventSection } from "./components/DeleteEventSection";
 import { FileBrowser } from "../files/components/FileBrowser";
 import { PasswordPrompt } from "../../shared/components/PasswordPrompt";
-import { LogoutIcon } from "../../components/ui/icons";
+import { CopyIcon, LogoutIcon, QrIcon } from "../../components/ui/icons";
 import { useTimedFeedback } from "../../shared/hooks/useTimedFeedback";
 import { useApiClient } from "../../shared/hooks/useApiClient";
+import { ModalDialog } from "../../components/ui/ModalDialog";
+import { QRCodeCanvas } from "qrcode.react";
 
 type AdminStatus = "loading" | "locked" | "ready" | "error";
 
@@ -35,6 +37,7 @@ export function AdminView({
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [settingsLoadError, setSettingsLoadError] = useState("");
   const [eventSettings, setEventSettings] = useState<EventInfo | null>(null);
+  const [isQrOpen, setIsQrOpen] = useState(false);
   const hasVerifiedAccessRef = useRef(false);
   const accessRequestRef = useRef<Promise<void> | null>(null);
 
@@ -167,6 +170,15 @@ export function AdminView({
     }
   }, [shareFeedback, shareUrl, t]);
 
+  const openQrModal = useCallback(() => {
+    if (!shareUrl) return;
+    setIsQrOpen(true);
+  }, [shareUrl]);
+
+  const closeQrModal = useCallback(() => {
+    setIsQrOpen(false);
+  }, []);
+
   useEffect(() => {
     if (status !== "ready") return;
     const hash = window.location.hash.replace("#", "");
@@ -251,15 +263,37 @@ export function AdminView({
           </p>
           <div className="share-row">
             <span className="hint">{t("AdminView.shareLabel")}</span>
-            <div className="input-with-action">
+            <div className="input-with-action share-input-row">
               <input type="text" readOnly value={shareUrl} data-testid="admin-share-input" />
               <button
                 type="button"
-                className="ghost"
+                className="ghost share-copy-text"
                 onClick={handleCopyShareUrl}
+                title={t("AdminView.shareCopyLabel")}
+                aria-label={t("AdminView.shareCopyLabel")}
                 data-testid="admin-share-copy"
               >
                 {t("AdminView.shareCopy")}
+              </button>
+              <button
+                type="button"
+                className="icon-btn share-copy-icon"
+                onClick={handleCopyShareUrl}
+                title={t("AdminView.shareCopyLabel")}
+                aria-label={t("AdminView.shareCopyLabel")}
+                data-testid="admin-share-copy-icon"
+              >
+                <CopyIcon size={16} />
+              </button>
+              <button
+                type="button"
+                className="icon-btn share-qr-btn"
+                onClick={openQrModal}
+                title={t("AdminView.shareQrLabel")}
+                aria-label={t("AdminView.shareQrLabel")}
+                data-testid="admin-share-qr"
+              >
+                <QrIcon />
               </button>
             </div>
             <p className="helper">{t("AdminView.shareHint")}</p>
@@ -344,6 +378,49 @@ export function AdminView({
           {t("AdminView.back")}
         </button>
       </div>
+      <ModalDialog
+        open={isQrOpen}
+        title={t("AdminView.shareQrTitle")}
+        subtitle={t("AdminView.shareQrSubtitle")}
+        cancelLabel={t("NewEventView.cancel")}
+        onCancel={closeQrModal}
+        closeOnEscape
+        showDefaultActions={false}
+        footerSlot={
+          <div
+            className="modal-controls"
+            style={{ padding: "12px 14px", justifyContent: "center" }}
+          >
+            <button
+              type="button"
+              className="ghost"
+              onClick={closeQrModal}
+              data-testid="admin-share-qr-close"
+            >
+              {t("NewEventView.cancel")}
+            </button>
+          </div>
+        }
+      >
+        <div className="qr-modal-body" data-testid="admin-share-qr-modal">
+          <div className="qr-modal-code">
+            <QRCodeCanvas value={shareUrl} size={220} includeMargin />
+          </div>
+          <div className="qr-modal-link" data-testid="admin-share-qr-link">
+            <span>{shareUrl}</span>
+            <button
+              type="button"
+              className="icon-btn qr-copy-btn"
+              onClick={handleCopyShareUrl}
+              title={t("AdminView.shareCopyLabel")}
+              aria-label={t("AdminView.shareCopyLabel")}
+              data-testid="admin-share-qr-copy"
+            >
+              <CopyIcon size={14} />
+            </button>
+          </div>
+        </div>
+      </ModalDialog>
     </main>
   );
 }
