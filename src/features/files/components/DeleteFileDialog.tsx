@@ -33,6 +33,7 @@ export const DeleteFileDialog = ({
       onConfirm={onConfirm}
       confirmLabel={confirmLabel}
       cancelLabel={cancelLabel}
+      closeOnEscape
       footerSlot={
         <label className="checkbox-helper">
           <input

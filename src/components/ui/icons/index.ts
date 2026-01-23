@@ -8,3 +8,5 @@ export { EditIcon } from "./EditIcon";
 export { LogoutIcon } from "./LogoutIcon";
 export { ArchiveIcon } from "./ArchiveIcon";
 export { RenameIcon } from "./RenameIcon";
+export { QrIcon } from "./QrIcon";
+export { CopyIcon } from "./CopyIcon";

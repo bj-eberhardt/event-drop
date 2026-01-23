@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import logoAvif from "../../img/logo.avif";
 import logoPng from "../../img/logo.png";
+import { HowItWorksTimeline } from "./components/HowItWorksTimeline";
 
 type HomeViewProps = { onStartNew: () => void; allowEventCreation: boolean };
 
@@ -41,6 +42,7 @@ export function HomeView({ onStartNew, allowEventCreation }: HomeViewProps) {
           <p data-testid="home-highlight-3-body">{t("HomeView.highlight3Body")}</p>
         </div>
       </section>
+      <HowItWorksTimeline />
     </main>
   );
 }

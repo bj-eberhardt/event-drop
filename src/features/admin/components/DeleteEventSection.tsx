@@ -79,6 +79,7 @@ export function DeleteEventSection({
         onCancel={cancelDeleteEvent}
         onConfirm={deleteEvent}
         confirmLabel={t("DeleteEventModal.confirm")}
+        closeOnEscape
       >
         <p className="helper" style={{ textAlign: "left" }}>
           {t("DeleteEventSection.dialogQuestion", { subdomain: eventId })}

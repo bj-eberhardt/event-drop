@@ -761,7 +761,23 @@ test.describe("guest event view", () => {
       await expectPreviewLoaded();
     });
 
+    await test.step("close preview with Escape", async () => {
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("modal")).toHaveCount(0);
+    });
+
+    await test.step("close preview with X", async () => {
+      const row = page.getByTestId("file-row").filter({ hasText: "image-3.png" });
+      await row.getByTestId("file-open").click();
+      await expect(page.getByTestId("modal")).toBeVisible();
+      await page.getByTestId("preview-close").click();
+      await expect(page.getByTestId("modal")).toHaveCount(0);
+    });
+
     await test.step("download image and close preview", async () => {
+      const row = page.getByTestId("file-row").filter({ hasText: "image-3.png" });
+      await row.getByTestId("file-open").click();
+      await expect(page.getByTestId("modal")).toBeVisible();
       const [download] = await Promise.all([
         page.waitForEvent("download"),
         page.getByTestId("preview-download").click(),

@@ -106,6 +106,38 @@ test.describe("admin event view", () => {
       expect(clipboard).toBe(shareUrl);
     });
 
+    await test.step("open QR modal and copy link", async () => {
+      const mode = getMode();
+      const shareUrl = buildEventUrl(adminEvent.baseURL as string, mode, adminEvent.eventId);
+
+      await page.getByTestId("admin-share-qr").click();
+      await expect(page.getByTestId("admin-share-qr-modal")).toBeVisible();
+      await expect(page.getByTestId("admin-share-qr-link")).toContainText(shareUrl);
+
+      await page.getByTestId("admin-share-qr-copy").click();
+      const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+      expect(clipboard).toBe(shareUrl);
+    });
+
+    await test.step("close QR modal with Escape", async () => {
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("admin-share-qr-modal")).toHaveCount(0);
+    });
+
+    await test.step("close QR modal with X", async () => {
+      await page.getByTestId("admin-share-qr").click();
+      await expect(page.getByTestId("admin-share-qr-modal")).toBeVisible();
+      await page.getByTestId("modal-close").click();
+      await expect(page.getByTestId("admin-share-qr-modal")).toHaveCount(0);
+    });
+
+    await test.step("close QR modal with cancel button", async () => {
+      await page.getByTestId("admin-share-qr").click();
+      await expect(page.getByTestId("admin-share-qr-modal")).toBeVisible();
+      await page.getByTestId("admin-share-qr-close").click();
+      await expect(page.getByTestId("admin-share-qr-modal")).toHaveCount(0);
+    });
+
     await test.step("verify empty file browser", async () => {
       const fileBrowser = page.getByTestId("filebrowser-admin");
       await expect(fileBrowser).toBeVisible();
@@ -521,7 +553,23 @@ test.describe("admin event view", () => {
       expect(content).toBe(fileContent);
     });
 
-    await test.step("delete file and return to root", async () => {
+    await test.step("open delete modal and close with Escape", async () => {
+      const fileRow = page.getByTestId("file-row").filter({ hasText: fileName });
+      await fileRow.getByTestId("file-delete").click();
+      await expect(page.getByTestId("modal")).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("modal")).toHaveCount(0);
+    });
+
+    await test.step("open delete modal and close with Abbrechen", async () => {
+      const fileRow = page.getByTestId("file-row").filter({ hasText: fileName });
+      await fileRow.getByTestId("file-delete").click();
+      await expect(page.getByTestId("modal")).toBeVisible();
+      await page.getByTestId("modal-cancel").click();
+      await expect(page.getByTestId("modal")).toHaveCount(0);
+    });
+
+    await test.step("confirm delete and return to root", async () => {
       const fileRow = page.getByTestId("file-row").filter({ hasText: fileName });
       await fileRow.getByTestId("file-delete").click();
       await expect(page.getByTestId("modal")).toBeVisible();
@@ -704,6 +752,13 @@ test.describe("admin event view", () => {
       await deleteOpen.click();
       await expect(page.getByTestId("modal")).toBeVisible();
       await page.getByTestId("modal-cancel").click();
+      await expect(page.getByTestId("modal")).toHaveCount(0);
+    });
+
+    await test.step("cancel delete confirmation with Escape", async () => {
+      await deleteOpen.click();
+      await expect(page.getByTestId("modal")).toBeVisible();
+      await page.keyboard.press("Escape");
       await expect(page.getByTestId("modal")).toHaveCount(0);
     });
 

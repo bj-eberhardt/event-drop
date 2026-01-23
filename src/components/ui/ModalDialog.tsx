@@ -10,6 +10,7 @@ type ModalDialogProps = {
   headerSlot?: ReactNode;
   footerSlot?: ReactNode;
   showDefaultActions?: boolean;
+  closeOnEscape?: boolean;
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm?: () => void;
@@ -24,11 +25,23 @@ export function ModalDialog({
   headerSlot,
   footerSlot,
   showDefaultActions = true,
+  closeOnEscape = false,
   confirmLabel = "Bestätigen",
   cancelLabel = "Abbrechen",
   onConfirm,
   onCancel,
 }: ModalDialogProps) {
+  useEffect(() => {
+    if (!open || !closeOnEscape) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onCancel();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [closeOnEscape, onCancel, open]);
+
   useEffect(() => {
     if (open) {
       document.body.classList.add("modal-open");

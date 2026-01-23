@@ -66,6 +66,7 @@ export function PreviewModal({
       title={previewName}
       subtitle={t("FileBrowser.previewNav", { index: index + 1, count })}
       onCancel={onCancel}
+      closeOnEscape
       showDefaultActions={false}
       headerSlot={
         <>
