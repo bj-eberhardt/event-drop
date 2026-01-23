@@ -5,6 +5,7 @@ import { parseFolder, isSafeFilename } from "../../utils/validation.js";
 import {
   ensureGuestDownloadsEnabled,
   ensureGuestUploadsEnabled,
+  ensureUploadFolderRequired,
   loadEvent,
   verifyAccess,
 } from "./middleware.js";
@@ -116,6 +117,7 @@ export const registerFileRoutes = (router: express.Router) => {
       },
       { errorKey: "INVALID_INPUT" }
     ),
+    ensureUploadFolderRequired,
     async (
       req: ValidatedReq<{
         params: typeof eventIdSchema;

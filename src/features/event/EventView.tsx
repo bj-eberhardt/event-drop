@@ -43,6 +43,8 @@ export function EventView({ eventId, baseDomain, onBackHome, onAdmin }: EventVie
           secured: Boolean(eventInfo.secured),
           allowGuestDownload: Boolean(eventInfo.allowGuestDownload),
           allowGuestUpload: eventInfo.allowGuestUpload ?? true,
+          requireUploadFolder: Boolean(eventInfo.requireUploadFolder),
+          uploadFolderHint: eventInfo.uploadFolderHint ?? null,
           allowedMimeTypes: eventInfo.allowedMimeTypes || [],
           uploadMaxFileSizeBytes: eventInfo.uploadMaxFileSizeBytes,
           uploadMaxTotalSizeBytes: eventInfo.uploadMaxTotalSizeBytes,
@@ -190,6 +192,8 @@ export function EventView({ eventId, baseDomain, onBackHome, onAdmin }: EventVie
           allowedMimeTypes={data?.allowedMimeTypes || []}
           uploadMaxFileSizeBytes={data?.uploadMaxFileSizeBytes ?? 0}
           uploadMaxTotalSizeBytes={data?.uploadMaxTotalSizeBytes ?? 0}
+          uploadFolderHint={data?.uploadFolderHint ?? null}
+          requireUploadFolder={data?.requireUploadFolder ?? false}
           onRefreshFiles={() => setFileBrowserRefresh((key) => key + 1)}
         />
       ) : null}
