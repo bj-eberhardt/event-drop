@@ -559,7 +559,6 @@ test.describe("admin event view", () => {
       await expect(page.getByTestId("modal")).toBeVisible();
       await page.keyboard.press("Escape");
       await expect(page.getByTestId("modal")).toHaveCount(0);
-
     });
 
     await test.step("open delete modal and close with Abbrechen", async () => {
