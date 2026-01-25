@@ -12,6 +12,8 @@ export type EventMeta = {
   secured: boolean;
   allowGuestDownload?: boolean;
   allowGuestUpload?: boolean;
+  requireUploadFolder?: boolean;
+  uploadFolderHint?: string | null;
   uploadMaxFileSizeBytes?: number;
   uploadMaxTotalSizeBytes?: number;
 };

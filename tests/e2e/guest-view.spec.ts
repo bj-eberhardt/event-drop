@@ -160,6 +160,105 @@ test.describe("guest event view", () => {
     });
   });
 
+  test("upload form reacts to folder requirement and hint", async ({ page, request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    testInfo.skip(!baseURL, "baseURL required");
+
+    const cases = [
+      {
+        label: "required without hint",
+        eventId: getUniqueEventId("e2e-folder-required"),
+        requireUploadFolder: true,
+        uploadFolderHint: null,
+        expectedLabel: /Ordnername \/ Name des Uploaders/i,
+      },
+      {
+        label: "required with hint",
+        eventId: getUniqueEventId("e2e-folder-required-hint"),
+        requireUploadFolder: true,
+        uploadFolderHint: "Bitte den Ordner angeben.",
+        expectedLabel: /Ordnername$/i,
+      },
+      {
+        label: "optional with hint",
+        eventId: getUniqueEventId("e2e-folder-optional-hint"),
+        requireUploadFolder: false,
+        uploadFolderHint: "Uploader: Name + Ordner.",
+        expectedLabel: /Ordnername$/i,
+      },
+      {
+        label: "optional without hint",
+        eventId: getUniqueEventId("e2e-folder-optional"),
+        requireUploadFolder: false,
+        uploadFolderHint: null,
+        expectedLabel: /Ordnername \/ Name des Uploaders/i,
+      },
+    ];
+
+    for (const scenario of cases) {
+      await test.step(`create event: ${scenario.label}`, async () => {
+        await createEvent(
+          request,
+          {
+            name: `Upload Form ${scenario.label}`,
+            description: "",
+            eventId: scenario.eventId,
+            guestPassword: "",
+            adminPassword: "adminpass123",
+            adminPasswordConfirm: "adminpass123",
+            allowedMimeTypes: [],
+            requireUploadFolder: scenario.requireUploadFolder,
+            uploadFolderHint: scenario.uploadFolderHint,
+          },
+          baseURL
+        );
+        cleanup.track({
+          eventId: scenario.eventId,
+          adminPassword: "adminpass123",
+          baseURL,
+        });
+      });
+
+      await test.step(`open guest view: ${scenario.label}`, async () => {
+        const mode = getMode();
+        const url = buildEventUrl(baseURL, mode, scenario.eventId);
+        await page.goto(url);
+        await expect(page.getByTestId("upload-form")).toBeVisible();
+      });
+
+      await test.step(`verify label and hint: ${scenario.label}`, async () => {
+        const form = page.getByTestId("upload-form");
+        await expect(form.getByText(scenario.expectedLabel)).toBeVisible();
+        if (scenario.uploadFolderHint) {
+          await expect(form.getByText(scenario.uploadFolderHint)).toBeVisible();
+        }
+      });
+
+      await test.step(`verify input validation: ${scenario.label}`, async () => {
+        const fromInput = page.getByTestId("upload-from-input");
+        const fileInput = page.getByTestId("upload-files-input");
+
+        await fromInput.fill("");
+        if (scenario.requireUploadFolder) {
+          await expect(fileInput).toBeDisabled();
+          await expect(page.getByText("Bitte Ordnernamen eingeben.")).toBeVisible();
+        } else {
+          await expect(fileInput).toBeEnabled();
+          await expect(page.getByText("Bitte Ordnernamen eingeben.")).toHaveCount(0);
+        }
+
+        await fromInput.fill("bad@folder");
+        await expect(fileInput).toBeDisabled();
+        await expect(
+          page.getByText("Es sind nur Buchstaben, Zahlen, Leerzeichen und - erlaubt.")
+        ).toBeVisible();
+
+        await fromInput.fill("Album 1");
+        await expect(fileInput).toBeEnabled();
+      });
+    }
+  });
+
   test("upload rejects disallowed mime types and clears queue item", async ({
     page,
     request,

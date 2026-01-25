@@ -11,6 +11,8 @@ export interface EventInfo {
   secured: boolean;
   allowGuestDownload: boolean;
   allowGuestUpload: boolean;
+  requireUploadFolder: boolean;
+  uploadFolderHint: string | null;
   accessLevel?: "unauthenticated" | "guest" | "admin";
   uploadMaxFileSizeBytes: number;
   uploadMaxTotalSizeBytes: number;
@@ -27,6 +29,8 @@ export interface CreateEventRequest {
   adminPasswordConfirm: string;
   allowGuestDownload?: boolean;
   allowGuestUpload?: boolean;
+  requireUploadFolder?: boolean;
+  uploadFolderHint?: string | null;
 }
 
 export interface CreateEventResponse {
@@ -37,6 +41,8 @@ export interface CreateEventResponse {
   secured: boolean;
   allowGuestDownload: boolean;
   allowGuestUpload: boolean;
+  requireUploadFolder: boolean;
+  uploadFolderHint: string | null;
   accessLevel?: "unauthenticated" | "guest" | "admin";
   uploadMaxFileSizeBytes: number;
   uploadMaxTotalSizeBytes: number;
@@ -55,6 +61,8 @@ export interface UpdateEventRequest {
   guestPassword?: string;
   allowGuestDownload?: boolean;
   allowGuestUpload?: boolean;
+  requireUploadFolder?: boolean;
+  uploadFolderHint?: string | null;
 }
 
 export interface UpdateEventResponse {
@@ -66,6 +74,8 @@ export interface UpdateEventResponse {
   secured: boolean;
   allowGuestDownload: boolean;
   allowGuestUpload: boolean;
+  requireUploadFolder: boolean;
+  uploadFolderHint: string | null;
   accessLevel?: "unauthenticated" | "guest" | "admin";
   uploadMaxFileSizeBytes: number;
   uploadMaxTotalSizeBytes: number;

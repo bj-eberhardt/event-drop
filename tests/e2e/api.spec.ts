@@ -38,6 +38,8 @@ type CreateEventPayload = {
   allowedMimeTypes: string[];
   allowGuestDownload?: boolean;
   allowGuestUpload?: boolean;
+  requireUploadFolder?: boolean;
+  uploadFolderHint?: string | null;
 };
 
 const createEventPayload = (overrides?: Partial<CreateEventPayload>): CreateEventPayload => ({
@@ -72,6 +74,8 @@ const expectEventInfoBody = (
     secured: boolean;
     allowGuestDownload: boolean;
     allowGuestUpload: boolean;
+    requireUploadFolder: boolean;
+    uploadFolderHint: string | null;
     accessLevel: "unauthenticated" | "guest" | "admin";
   }
 ) => {
@@ -85,7 +89,9 @@ const expectEventInfoBody = (
     "description",
     "eventId",
     "name",
+    "requireUploadFolder",
     "secured",
+    "uploadFolderHint",
     "uploadMaxFileSizeBytes",
     "uploadMaxTotalSizeBytes",
   ]);
@@ -96,6 +102,8 @@ const expectEventInfoBody = (
   expect(body.secured).toBe(expected.secured);
   expect(body.allowGuestDownload).toBe(expected.allowGuestDownload);
   expect(body.allowGuestUpload).toBe(expected.allowGuestUpload);
+  expect(body.requireUploadFolder).toBe(expected.requireUploadFolder);
+  expect(body.uploadFolderHint).toBe(expected.uploadFolderHint);
   expect(body.accessLevel).toBe(expected.accessLevel);
   expect(typeof body.createdAt).toBe("string");
   expect(typeof body.uploadMaxFileSizeBytes).toBe("number");
@@ -112,6 +120,8 @@ const expectUpdateEventBody = (
     secured: boolean;
     allowGuestDownload: boolean;
     allowGuestUpload: boolean;
+    requireUploadFolder: boolean;
+    uploadFolderHint: string | null;
     accessLevel: "admin";
   }
 ) => {
@@ -125,7 +135,9 @@ const expectUpdateEventBody = (
     "eventId",
     "name",
     "ok",
+    "requireUploadFolder",
     "secured",
+    "uploadFolderHint",
     "uploadMaxFileSizeBytes",
     "uploadMaxTotalSizeBytes",
   ]);
@@ -137,6 +149,8 @@ const expectUpdateEventBody = (
   expect(body.secured).toBe(expected.secured);
   expect(body.allowGuestDownload).toBe(expected.allowGuestDownload);
   expect(body.allowGuestUpload).toBe(expected.allowGuestUpload);
+  expect(body.requireUploadFolder).toBe(expected.requireUploadFolder);
+  expect(body.uploadFolderHint).toBe(expected.uploadFolderHint);
   expect(body.accessLevel).toBe(expected.accessLevel);
   expect(typeof body.createdAt).toBe("string");
   expect(typeof body.uploadMaxFileSizeBytes).toBe("number");
@@ -203,6 +217,13 @@ const createEvent = async (
     const secured = Boolean(guestPassword);
     const allowGuestDownload = payload.allowGuestDownload === true && secured;
     const allowGuestUpload = payload.allowGuestUpload !== false;
+    const requireUploadFolder = payload.requireUploadFolder === true;
+    const uploadFolderHint =
+      payload.uploadFolderHint == null
+        ? null
+        : payload.uploadFolderHint.trim()
+          ? payload.uploadFolderHint.trim()
+          : null;
     const allowedMimeTypes = Array.isArray(payload.allowedMimeTypes)
       ? (payload.allowedMimeTypes as string[])
       : [];
@@ -214,6 +235,8 @@ const createEvent = async (
       secured,
       allowGuestDownload,
       allowGuestUpload,
+      requireUploadFolder,
+      uploadFolderHint,
       accessLevel: "unauthenticated",
     });
     cleanup.track({
@@ -304,6 +327,52 @@ test.describe("POST /api/events", () => {
       allowGuestUpload: false,
     });
     expect(body.allowGuestUpload).toBe(false);
+  });
+
+  test("creates event with required upload folder and hint", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { body } = await createEvent(request, baseURL, {
+      requireUploadFolder: true,
+      uploadFolderHint: "Bitte einen Ordner angeben.",
+    });
+    expect(body.requireUploadFolder).toBe(true);
+    expect(body.uploadFolderHint).toBe("Bitte einen Ordner angeben.");
+  });
+
+  test("stores blank uploadFolderHint as null", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { body } = await createEvent(request, baseURL, {
+      uploadFolderHint: "   ",
+    });
+    expect(body.uploadFolderHint).toBe(null);
+  });
+
+  test("rejects uploadFolderHint longer than 512 characters", async ({ request }, testInfo) => {
+    const apiBase = getApiBaseUrl(testInfo.project.use.baseURL as string | undefined);
+    const payload = createEventPayload({
+      eventId: getUniqueEventId("e2e-upload-hint"),
+      uploadFolderHint: "a".repeat(513),
+    });
+    const response = await request.post(`${apiBase}/api/events`, { data: payload });
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_INPUT");
+    expect(body.property).toBe("uploadFolderHint");
+    expect(body.message).toBe("Upload folder hint can be at most 512 characters.");
+  });
+
+  test("rejects uploadFolderHint shorter than 8 characters", async ({ request }, testInfo) => {
+    const apiBase = getApiBaseUrl(testInfo.project.use.baseURL as string | undefined);
+    const payload = createEventPayload({
+      eventId: getUniqueEventId("e2e-upload-hint-min"),
+      uploadFolderHint: "short",
+    });
+    const response = await request.post(`${apiBase}/api/events`, { data: payload });
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_INPUT");
+    expect(body.property).toBe("uploadFolderHint");
+    expect(body.message).toBe("Upload folder hint must be at least 8 characters.");
   });
 
   test("rejects create when guest upload and download disabled", async ({ request }, testInfo) => {
@@ -407,6 +476,8 @@ test.describe("GET /api/events/{eventId}", () => {
       secured: true,
       allowGuestDownload: false,
       allowGuestUpload: true,
+      requireUploadFolder: false,
+      uploadFolderHint: null,
       accessLevel: "admin",
     });
   });
@@ -430,6 +501,8 @@ test.describe("GET /api/events/{eventId}", () => {
       secured: true,
       allowGuestDownload: false,
       allowGuestUpload: true,
+      requireUploadFolder: false,
+      uploadFolderHint: null,
       accessLevel: "guest",
     });
   });
@@ -508,6 +581,8 @@ test.describe("PATCH /api/events/{eventId}", () => {
       secured: true,
       allowGuestDownload: true,
       allowGuestUpload: true,
+      requireUploadFolder: false,
+      uploadFolderHint: null,
       accessLevel: "admin",
     });
   });
@@ -692,6 +767,8 @@ test.describe("PATCH /api/events/{eventId}", () => {
       secured: true,
       allowGuestDownload: true,
       allowGuestUpload: true,
+      requireUploadFolder: false,
+      uploadFolderHint: null,
       accessLevel: "admin",
     });
   });
@@ -718,8 +795,107 @@ test.describe("PATCH /api/events/{eventId}", () => {
       secured: true,
       allowGuestDownload: true,
       allowGuestUpload: false,
+      requireUploadFolder: false,
+      uploadFolderHint: null,
       accessLevel: "admin",
     });
+  });
+
+  test("updates requireUploadFolder and uploadFolderHint", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
+
+    const apiBase = getApiBaseUrl(baseURL);
+    const response = await request.patch(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}`,
+      {
+        headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }),
+        data: { requireUploadFolder: true, uploadFolderHint: "Bitte Album angeben." },
+      }
+    );
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expectUpdateEventBody(body, {
+      eventId: payload.eventId as string,
+      name: payload.name as string,
+      description: payload.description as string,
+      allowedMimeTypes: payload.allowedMimeTypes as string[],
+      secured: true,
+      allowGuestDownload: true,
+      allowGuestUpload: true,
+      requireUploadFolder: true,
+      uploadFolderHint: "Bitte Album angeben.",
+      accessLevel: "admin",
+    });
+  });
+
+  test("clears uploadFolderHint with blank value", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, {
+      allowGuestDownload: true,
+      uploadFolderHint: "Vorheriger Hinweis",
+    });
+
+    const apiBase = getApiBaseUrl(baseURL);
+    const response = await request.patch(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}`,
+      {
+        headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }),
+        data: { uploadFolderHint: "   " },
+      }
+    );
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expectUpdateEventBody(body, {
+      eventId: payload.eventId as string,
+      name: payload.name as string,
+      description: payload.description as string,
+      allowedMimeTypes: payload.allowedMimeTypes as string[],
+      secured: true,
+      allowGuestDownload: true,
+      allowGuestUpload: true,
+      requireUploadFolder: false,
+      uploadFolderHint: null,
+      accessLevel: "admin",
+    });
+  });
+
+  test("rejects uploadFolderHint longer than 512 characters", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
+
+    const apiBase = getApiBaseUrl(baseURL);
+    const response = await request.patch(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}`,
+      {
+        headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }),
+        data: { uploadFolderHint: "b".repeat(513) },
+      }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_INPUT");
+    expect(body.property).toBe("uploadFolderHint");
+    expect(body.message).toBe("Upload folder hint can be at most 512 characters.");
+  });
+
+  test("rejects uploadFolderHint shorter than 8 characters", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
+
+    const apiBase = getApiBaseUrl(baseURL);
+    const response = await request.patch(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}`,
+      {
+        headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }),
+        data: { uploadFolderHint: "short" },
+      }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("INVALID_INPUT");
+    expect(body.property).toBe("uploadFolderHint");
+    expect(body.message).toBe("Upload folder hint must be at least 8 characters.");
   });
 
   test("rejects patch when guest upload and download disabled", async ({ request }, testInfo) => {
@@ -1181,6 +1357,53 @@ test.describe("POST /api/events/{eventId}/files", () => {
       payload.eventId as string,
       { user: "guest", password: payload.guestPassword as string },
       { name: "upload.txt", mimeType: "text/plain", content: "hello" }
+    );
+    expect(uploadResponse.status()).toBe(200);
+  });
+
+  test("rejects upload without folder when required", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, {
+      requireUploadFolder: true,
+      allowGuestDownload: true,
+    });
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.post(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files`,
+      {
+        headers: toAuthHeader({ user: "admin", password: payload.adminPassword as string }),
+        multipart: {
+          files: {
+            name: "upload.txt",
+            mimeType: "text/plain",
+            buffer: Buffer.from("hello"),
+          },
+        },
+      }
+    );
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.errorKey).toBe("UPLOAD_FOLDER_REQUIRED");
+    expect(body.property).toBe("from");
+    expect(body.message).toBe("Upload folder is required.");
+  });
+
+  test("allows upload with folder when required", async ({ request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, {
+      requireUploadFolder: true,
+      allowGuestDownload: true,
+    });
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const { response: uploadResponse } = await uploadFile(
+      request,
+      apiBase,
+      payload.eventId as string,
+      { user: "admin", password: payload.adminPassword as string },
+      { name: "upload.txt", mimeType: "text/plain", content: "hello" },
+      "album-a"
     );
     expect(uploadResponse.status()).toBe(200);
   });

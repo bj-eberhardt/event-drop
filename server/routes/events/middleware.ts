@@ -167,3 +167,30 @@ export const ensureGuestUploadsEnabled: RequestHandler<{ eventId?: string }, Err
 
   return next();
 };
+
+export const ensureUploadFolderRequired: RequestHandler<{ eventId?: string }, ErrorResponse> = (
+  req,
+  res,
+  next
+) => {
+  const event = req.event;
+  if (!event) {
+    return sendError(res, 500, {
+      message: "Event context missing.",
+      errorKey: "EVENT_CONTEXT_MISSING",
+    });
+  }
+
+  if (event.settings.requireUploadFolder) {
+    const rawFolder = typeof req.body?.from === "string" ? req.body.from.trim() : "";
+    if (!rawFolder) {
+      return sendError(res, 400, {
+        message: "Upload folder is required.",
+        errorKey: "UPLOAD_FOLDER_REQUIRED",
+        property: "from",
+      });
+    }
+  }
+
+  return next();
+};

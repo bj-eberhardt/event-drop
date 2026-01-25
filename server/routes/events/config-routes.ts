@@ -63,6 +63,8 @@ export const registerConfigRoutes = (router: express.Router) => {
           allowedMimeTypes,
           allowGuestDownload,
           allowGuestUpload,
+          requireUploadFolder,
+          uploadFolderHint,
         } = req.body;
 
         if (adminPassword !== adminPasswordConfirm) {
@@ -117,6 +119,8 @@ export const registerConfigRoutes = (router: express.Router) => {
           allowedMimeTypes,
           allowGuestDownload: Boolean(allowGuestDownload),
           allowGuestUpload,
+          requireUploadFolder,
+          uploadFolderHint,
         });
 
         return res.status(200).json(buildEventResponse(event, "unauthenticated"));
@@ -151,6 +155,8 @@ export const registerConfigRoutes = (router: express.Router) => {
           guestPassword,
           allowGuestDownload,
           allowGuestUpload,
+          requireUploadFolder,
+          uploadFolderHint,
           name,
           description,
           allowedMimeTypes,
@@ -190,6 +196,17 @@ export const registerConfigRoutes = (router: express.Router) => {
 
         if (allowGuestUpload !== undefined) {
           updated.settings.allowGuestUpload = Boolean(allowGuestUpload);
+        }
+
+        if (requireUploadFolder !== undefined) {
+          updated.settings.requireUploadFolder = Boolean(requireUploadFolder);
+        }
+
+        if (uploadFolderHint !== undefined) {
+          updated.settings.uploadFolderHint =
+            typeof uploadFolderHint === "string"
+              ? uploadFolderHint.trim() || null
+              : uploadFolderHint;
         }
 
         if (!updated.settings.allowGuestDownload && !updated.settings.allowGuestUpload) {

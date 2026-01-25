@@ -10,6 +10,8 @@ type CreateEventPayload = {
   allowedMimeTypes?: string[];
   allowGuestDownload?: boolean;
   allowGuestUpload?: boolean;
+  requireUploadFolder?: boolean;
+  uploadFolderHint?: string | null;
 };
 
 const getApiBaseUrl = (baseURL?: string) => {
