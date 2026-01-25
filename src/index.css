@@ -90,6 +90,10 @@ body {
   margin: 0;
 }
 
+.eyebrow.large {
+  font-size: large;
+}
+
 h1 {
   margin: 0;
   font-size: clamp(28px, 4vw, 40px);
@@ -168,6 +172,7 @@ h2 {
   perspective: 1200px;
   justify-items: center;
   position: relative;
+  max-width: 1200px;
 }
 
 .howitworks-track:focus-visible {
@@ -230,10 +235,11 @@ h2 {
 .howitworks-asset {
   width: 100%;
   border-radius: 14px;
-  background: rgba(15, 23, 42, 0.8);
+  background: #253c55;
   border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 10px;
   transform: translateZ(30px);
+  max-width: 200px;
 }
 
 .howitworks-asset img {
@@ -281,6 +287,13 @@ h2 {
   .howitworks-card {
     grid-template-columns: 1fr;
     transform: translateY(10px);
+  }
+  .howitworks-desc-short {
+    display: none;
+  }
+  .howitworks-desc-long {
+    display: block;
+    margin-top: 6px;
   }
 }
 
