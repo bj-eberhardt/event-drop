@@ -34,7 +34,9 @@ export function NewEventView({ baseDomain, supportSubdomain, onCancel }: NewEven
       <header className="form-header">
         <p className="eyebrow">{t("NewEventView.eyebrow")}</p>
         <h1>{t("NewEventView.title")}</h1>
-        <p className="lede">{t("NewEventView.lede")}</p>
+        <p className="lede">
+          {t(supportSubdomain ? "NewEventView.ledeSubdomain" : "NewEventView.ledePath")}
+        </p>
       </header>
 
       <form className="form-card" onSubmit={handleSubmit} noValidate data-testid="new-event-form">
