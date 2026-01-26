@@ -1,13 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import createSvg from "../../../img/how-create.svg";
-import shareSvg from "../../../img/how-share.svg";
-import collectSvg from "../../../img/how-collect.svg";
-import reviewSvg from "../../../img/how-review.svg";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
+import step1Avif from "../../../img/step1_small.avif";
+import step1Png from "../../../img/step1_small.png";
+import step2Avif from "../../../img/step2_small.avif";
+import step2Png from "../../../img/step2_small.png";
+import step3Avif from "../../../img/step3_small.avif";
+import step3Png from "../../../img/step3_small.png";
+import step4Avif from "../../../img/step4_small.avif";
+import step4Png from "../../../img/step4_small.png";
 
 type Step = {
   title: string;
+  shortSummary: string;
   description: string;
-  image: string;
+  image: {
+    avif: string;
+    png: string;
+  };
 };
 
 export function HowItWorksTimeline() {
@@ -15,27 +23,30 @@ export function HowItWorksTimeline() {
     () => [
       {
         title: "Erstellen",
+        shortSummary: "Event in wenigen Minuten anlegen.",
         description:
-          "Event in wenigen Minuten anlegen.|Erstelle dein Event, vergib Titel und Beschreibung und sichere es optional mit einem Gäste-Passwort.",
-        image: createSvg,
+          "Erstelle dein Event, vergib Titel und Beschreibung und sichere es optional mit einem Gäste-Passwort.",
+        image: { avif: step1Avif, png: step1Png },
       },
       {
         title: "Teilen",
-        description:
-          "Link an Gäste schicken.|Teile den Upload-Link oder QR-Code, damit alle schnell Zugriff haben.",
-        image: shareSvg,
+        shortSummary: "Link an Gäste schicken.",
+        description: "Teile den Upload-Link oder QR-Code, damit alle schnell Zugriff haben.",
+        image: { avif: step2Avif, png: step2Png },
       },
       {
         title: "Sammeln",
+        shortSummary: "Gäste laden direkt hoch.",
         description:
-          "Gäste laden direkt hoch.|Fotos und Videos landen sofort im Event-Ordner, ohne Chaos in Chats.",
-        image: collectSvg,
+          "Fotos und Videos landen sofort im Event-Ordner, ohne Chaos in Chats und in voller Auflösung. Dank Ordernamen können die Updates gruppiert werden, z.B. durch Angabe des Namens.",
+        image: { avif: step3Avif, png: step3Png },
       },
       {
         title: "Sichten & ZIP",
+        shortSummary: "Uploads prüfen & exportieren.",
         description:
-          "Uploads prüfen & exportieren.|Überblicke die Dateien, sortiere sie und lade alles als ZIP herunter.",
-        image: reviewSvg,
+          "Überblicke die Dateien, lösche unpassende Bilder und lade alles als ZIP herunter. Du kannst auch alle Bilder den Gästen zugänglich machen.",
+        image: { avif: step4Avif, png: step4Png },
       },
     ],
     []
@@ -77,8 +88,7 @@ export function HowItWorksTimeline() {
   return (
     <section className="howitworks" data-testid="home-howitworks" ref={sectionRef}>
       <div className="howitworks-header">
-        <p className="eyebrow">So funktioniert es</p>
-        <h2>Erstellen → Teilen → Sammeln → Sichten & ZIP</h2>
+        <p className="eyebrow large">So funktioniert es</p>
         <p className="lede">
           Der Ablauf bleibt für Gäste simpel, während du die Kontrolle behältst.
         </p>
@@ -95,7 +105,10 @@ export function HowItWorksTimeline() {
           >
             <div className="howitworks-card">
               <div className="howitworks-asset">
-                <img src={step.image} alt="" aria-hidden="true" />
+                <picture>
+                  <source srcSet={step.image.avif} type="image/avif" />
+                  <img src={step.image.png} alt="" aria-hidden="true" />
+                </picture>
               </div>
               <div className="howitworks-content">
                 <div className="howitworks-title">
@@ -103,8 +116,8 @@ export function HowItWorksTimeline() {
                   {step.title}
                 </div>
                 <p>
-                  <span className="howitworks-desc-short">{step.description.split("|")[0]}</span>
-                  <span className="howitworks-desc-long">{step.description.split("|")[1]}</span>
+                  <span className="howitworks-desc-short">{step.shortSummary}</span>
+                  <span className="howitworks-desc-long">{step.description}</span>
                 </p>
               </div>
             </div>
