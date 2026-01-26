@@ -116,7 +116,8 @@
   "NewEventView": {
     "eyebrow": "Neue Party",
     "title": "Upload-Bereich konfigurieren",
-    "lede": "Wähl eine Subdomain, vergebe optionale Gästepasswörter und sichere den Admin-Bereich mit einem starken Passwort.",
+    "ledeSubdomain": "Wähle eine Subdomain, vergebe optionale Gästepasswörter und sichere den Admin-Bereich mit einem starken Passwort.",
+    "ledePath": "Wähle einen URL-Pfad, vergebe optionale Gästepasswörter und sichere den Admin-Bereich mit einem starken Passwort.",
     "nameLabel": "Eventname",
     "namePlaceholder": "z. B. Silvester 2025",
     "nameHelper": "Name der den Gästen angezeigt wird, maximal 48 Zeichen.",
@@ -139,6 +140,8 @@
     "availabilityChecking": "Prüfe …",
     "availabilityAvailable": "Subdomain ist verfügbar.",
     "availabilityTaken": "Subdomain ist vergeben.",
+    "availabilityAvailablePath": "Pfad ist verfügbar.",
+    "availabilityTakenPath": "Pfad ist vergeben.",
     "availabilityInvalid": "Nur Kleinbuchstaben, Zahlen und Bindestriche sind erlaubt.",
     "availabilityError": "Prüfung fehlgeschlagen.",
     "guestPasswordLabel": "Gäste-Passwort",
@@ -157,8 +160,11 @@
     "formErrorSubdomainInvalid": "Bitte eine gültige Subdomain eingeben.",
     "formErrorPathInvalid": "Bitte einen gültigen Pfad eingeben.",
     "formErrorSubdomainTaken": "Diese Subdomain ist bereits vergeben.",
+    "formErrorPathTaken": "Dieser Pfad ist bereits vergeben.",
     "formErrorChecking": "Bitte warte, Subdomain wird geprüft.",
+    "formErrorCheckingPath": "Bitte warte, Pfad wird geprüft.",
     "formErrorUnavailable": "Subdomain konnte nicht geprüft werden.",
+    "formErrorUnavailablePath": "Pfad konnte nicht geprüft werden.",
     "submitErrorServer": "Server nicht erreichbar. Bitte später erneut versuchen.",
     "cancel": "Abbrechen",
     "submit": "Anlegen"
@@ -174,6 +180,33 @@
     "highlight2Body": "Eigenes Event-Projekt erstellen, nur für dich, und Uploads sauber trennen.",
     "highlight3Title": "Stressfrei starten",
     "highlight3Body": "In wenigen Schritten vorbereiten und sofort loslegen."
+  },
+  "HowItWorks": {
+    "eyebrow": "So funktioniert's",
+    "title": "In vier Schritten zum Event-Upload",
+    "lede": "Erstellen, teilen, sammeln und am Ende alles sauber sichern.",
+    "steps": {
+      "create": {
+        "title": "Erstellen",
+        "shortSummary": "Event anlegen und Grunddaten festlegen.",
+        "description": "Lege dein Event an, setze optional ein Gäste-Passwort und sichere den Admin-Bereich."
+      },
+      "share": {
+        "title": "Teilen",
+        "shortSummary": "Link oder QR-Code an Gäste senden.",
+        "description": "Teile den Upload-Link oder QR-Code, damit alle schnell Bilder hochladen können."
+      },
+      "collect": {
+        "title": "Sammeln",
+        "shortSummary": "Gäste laden Fotos und Videos hoch.",
+        "description": "Uploads landen übersichtlich in Ordnern, damit nichts verloren geht."
+      },
+      "review": {
+        "title": "Prüfen & ZIP",
+        "shortSummary": "Im Browser prüfen und gesammelt laden.",
+        "description": "Überblicke alles im Dateibrowser und lade einzelne Dateien oder das komplette ZIP."
+      }
+    }
   },
   "UploadForm": {
     "title": "Dateien hochladen",

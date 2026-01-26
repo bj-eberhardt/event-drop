@@ -120,12 +120,24 @@ export const useNewEvent = ({
 
         if (result) {
           setAvailability("available");
-          setAvailabilityMessage(t("NewEventView.availabilityAvailable"));
+          setAvailabilityMessage(
+            t(
+              supportSubdomain
+                ? "NewEventView.availabilityAvailable"
+                : "NewEventView.availabilityAvailablePath"
+            )
+          );
           return;
         }
 
         setAvailability("taken");
-        setAvailabilityMessage(t("NewEventView.availabilityTaken"));
+        setAvailabilityMessage(
+          t(
+            supportSubdomain
+              ? "NewEventView.availabilityTaken"
+              : "NewEventView.availabilityTakenPath"
+          )
+        );
       } catch {
         if (controller.signal.aborted) return;
         setAvailability("error");
@@ -166,15 +178,31 @@ export const useNewEvent = ({
       return;
     }
     if (availability === "taken") {
-      setSubmitError(t("NewEventView.formErrorSubdomainTaken"));
+      setSubmitError(
+        t(
+          supportSubdomain
+            ? "NewEventView.formErrorSubdomainTaken"
+            : "NewEventView.formErrorPathTaken"
+        )
+      );
       return;
     }
     if (availability === "checking") {
-      setSubmitError(t("NewEventView.formErrorChecking"));
+      setSubmitError(
+        t(
+          supportSubdomain ? "NewEventView.formErrorChecking" : "NewEventView.formErrorCheckingPath"
+        )
+      );
       return;
     }
     if (availability === "error") {
-      setSubmitError(t("NewEventView.formErrorUnavailable"));
+      setSubmitError(
+        t(
+          supportSubdomain
+            ? "NewEventView.formErrorUnavailable"
+            : "NewEventView.formErrorUnavailablePath"
+        )
+      );
       return;
     }
 
