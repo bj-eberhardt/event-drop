@@ -15,8 +15,6 @@ export type UploadQueueItemView = {
 
 export type UseUploadQueueResult = {
   queueItems: UploadQueueItemView[];
-  doneCount: number;
-  totalCount: number;
 };
 
 const getStatusLabel = (status: UploadItemStatus, t: TFunction) => {
@@ -33,8 +31,6 @@ const getStatusLabel = (status: UploadItemStatus, t: TFunction) => {
 };
 
 export const useUploadQueue = (items: UploadItem[], t: TFunction): UseUploadQueueResult => {
-  const doneCount = items.filter((item) => item.status === "success").length;
-  const totalCount = items.length;
   const queueItems = items.map((item) => ({
     id: item.id,
     name: item.file.name,
@@ -47,5 +43,5 @@ export const useUploadQueue = (items: UploadItem[], t: TFunction): UseUploadQueu
     showCancel: item.status === "queued" || item.status === "uploading",
   }));
 
-  return { queueItems, doneCount, totalCount };
+  return { queueItems };
 };

@@ -301,15 +301,25 @@ test.describe("rate limit messaging", () => {
     cleanup.track({ eventId, adminPassword, baseURL });
 
     await test.step("mock 429 for file upload", async () => {
+      let uploadAttempts = 0;
       await page.route(`**/api/events/${eventId}/files`, (route) => {
         if (route.request().method() !== "POST") {
           route.continue();
           return;
         }
+        uploadAttempts += 1;
+        if (uploadAttempts === 1) {
+          route.fulfill({
+            status: 429,
+            contentType: "application/json",
+            body: JSON.stringify({ message: "Too Many Requests" }),
+          });
+          return;
+        }
         route.fulfill({
-          status: 429,
+          status: 200,
           contentType: "application/json",
-          body: JSON.stringify({ message: "Too Many Requests" }),
+          body: JSON.stringify({ message: "ok", uploaded: 1 }),
         });
       });
     });
@@ -323,7 +333,7 @@ test.describe("rate limit messaging", () => {
       await expect(page.getByTestId("upload-form")).toBeVisible();
     });
 
-    await test.step("attempt upload and show rate limit message", async () => {
+    await test.step("attempt upload and show rate limit message + retry", async () => {
       const fileInput = page.getByTestId("upload-files-input");
       await expect(fileInput).toBeEnabled();
       await fileInput.setInputFiles({
@@ -331,7 +341,12 @@ test.describe("rate limit messaging", () => {
         mimeType: "text/plain",
         buffer: Buffer.from("rate limit"),
       });
-      await expect(page.getByTestId("upload-message")).toContainText(RATE_LIMIT_MESSAGE);
+      const item = page.getByTestId("upload-item").filter({ hasText: "rate-upload.txt" });
+      await expect(item.getByTestId("upload-message")).toContainText(RATE_LIMIT_MESSAGE);
+      await expect(item.getByRole("button", { name: /erneut versuchen/i })).toBeVisible();
+
+      await item.getByRole("button", { name: /erneut versuchen/i }).click();
+      await expect(item.getByTestId("upload-status")).toHaveText(/fertig/i);
     });
   });
 

@@ -41,6 +41,8 @@ export function UploadForm({
     selectionStats,
     uploadSelectionWarning,
     uploadItems,
+    batchDoneCount,
+    batchTotalCount,
     overallProgress,
     handleFileChange,
     clearUploadItem,
@@ -143,6 +145,8 @@ export function UploadForm({
       <UploadQueue
         items={uploadItems}
         overallProgress={overallProgress}
+        doneCount={batchDoneCount}
+        totalCount={batchTotalCount}
         onRetry={retryUploadItem}
         onClear={clearUploadItem}
         onCancel={cancelUploadItem}
