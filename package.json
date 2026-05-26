@@ -60,7 +60,7 @@
     "tsx": "^4.19.2",
     "typescript": "^5.8.2",
     "typescript-eslint": "8.48.1",
-    "vite": "7.2.7"
+    "vite": "7.3.2"
   },
   "lint-staged": {
     "{src,server}/**/*.{ts,tsx,js,jsx}": [
