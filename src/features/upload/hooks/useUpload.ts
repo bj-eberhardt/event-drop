@@ -42,6 +42,8 @@ export type UseUploadResult = {
   selectionStats: SelectionStats;
   uploadSelectionWarning: string;
   uploadItems: UploadItem[];
+  batchDoneCount: number;
+  batchTotalCount: number;
   overallProgress: number;
   isUploading: boolean;
   handleFileChange: (fileList: FileList | null) => void;
@@ -78,11 +80,26 @@ export function useUpload({
   });
   const [uploadSelectionWarning, setUploadSelectionWarning] = useState("");
   const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
+  const [batchItems, setBatchItems] = useState<UploadItem[]>([]);
 
   const activeUploadsRef = useRef<Set<string>>(new Set());
   const successTimeoutsRef = useRef<Map<string, number>>(new Map());
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const canceledIdsRef = useRef<Set<string>>(new Set());
+
+  const syncBatchItem = useCallback((next: UploadItem) => {
+    setBatchItems((prev) => {
+      const idx = prev.findIndex((v) => v.id === next.id);
+      if (idx === -1) return [...prev, next];
+      const copy = prev.slice();
+      copy[idx] = next;
+      return copy;
+    });
+  }, []);
+
+  const removeBatchItem = useCallback((id: string) => {
+    setBatchItems((prev) => prev.filter((item) => item.id !== id));
+  }, []);
 
   const matchesMime = useCallback((mime: string, allowedList: string[]) => {
     if (!allowedList.length) return true;
@@ -110,14 +127,20 @@ export function useUpload({
     setSelectionStats({ count, totalBytes, maxBytes });
   }, []);
 
-  const clearUploadItem = useCallback((id: string) => {
-    const timeoutId = successTimeoutsRef.current.get(id);
-    if (timeoutId) {
-      window.clearTimeout(timeoutId);
-      successTimeoutsRef.current.delete(id);
-    }
-    setUploadItems((prev) => prev.filter((item) => item.id !== id));
-  }, []);
+  const clearUploadItem = useCallback(
+    (id: string) => {
+      const timeoutId = successTimeoutsRef.current.get(id);
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+        successTimeoutsRef.current.delete(id);
+      }
+      setUploadItems((prev) => prev.filter((item) => item.id !== id));
+      // If the user explicitly clears an item (error) or cancels it, it should not count
+      // towards the batch progress anymore.
+      removeBatchItem(id);
+    },
+    [removeBatchItem]
+  );
 
   const cancelUploadItem = useCallback(
     (id: string) => {
@@ -149,17 +172,34 @@ export function useUpload({
           : item
       )
     );
+    setBatchItems((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              status: "queued",
+              progress: 0,
+              loadedBytes: 0,
+              message: "",
+              errorType: undefined,
+              canRetry: false,
+            }
+          : item
+      )
+    );
   }, []);
 
   const scheduleSuccessCleanup = useCallback(
     (id: string) => {
       if (successDismissMs <= 0) return;
       const timeoutId = window.setTimeout(() => {
-        clearUploadItem(id);
+        // Success items disappear from the UI, but should still count towards the current batch.
+        // Therefore: only remove from uploadItems, keep it in batchItems until the batch is complete.
+        setUploadItems((prev) => prev.filter((item) => item.id !== id));
       }, successDismissMs);
       successTimeoutsRef.current.set(id, timeoutId);
     },
-    [clearUploadItem, successDismissMs]
+    [successDismissMs]
   );
 
   const startUpload = useCallback(
@@ -174,6 +214,13 @@ export function useUpload({
             : entry
         )
       );
+      syncBatchItem({
+        ...item,
+        status: "uploading",
+        message: "",
+        errorType: undefined,
+        canRetry: false,
+      });
 
       const controller = new AbortController();
       abortControllersRef.current.set(item.id, controller);
@@ -185,6 +232,18 @@ export function useUpload({
           onProgress: ({ loaded, total }) => {
             if (canceledIdsRef.current.has(item.id)) return;
             setUploadItems((prev) =>
+              prev.map((entry) =>
+                entry.id === item.id
+                  ? {
+                      ...entry,
+                      loadedBytes: loaded,
+                      totalBytes: total || entry.totalBytes,
+                      progress: total ? Math.min(100, Math.round((loaded / total) * 100)) : 0,
+                    }
+                  : entry
+              )
+            );
+            setBatchItems((prev) =>
               prev.map((entry) =>
                 entry.id === item.id
                   ? {
@@ -214,6 +273,19 @@ export function useUpload({
               : entry
           )
         );
+        setBatchItems((prev) =>
+          prev.map((entry) =>
+            entry.id === item.id
+              ? {
+                  ...entry,
+                  status: "success",
+                  progress: 100,
+                  loadedBytes: entry.totalBytes,
+                  message: t("UploadForm.fileUploadSuccess"),
+                }
+              : entry
+          )
+        );
         if (typeof onRefreshFiles === "function") onRefreshFiles();
         scheduleSuccessCleanup(item.id);
       } catch (error) {
@@ -224,7 +296,12 @@ export function useUpload({
 
         if (error instanceof ApiError) {
           message = error.message || message;
-          errorType = error.status >= 400 && error.status < 500 ? "validation" : "server";
+          if (error.status === 429) {
+            errorType = "network";
+            canRetry = true;
+          } else {
+            errorType = error.status >= 400 && error.status < 500 ? "validation" : "server";
+          }
         } else if (error instanceof NetworkError) {
           message = t("UploadForm.networkError");
           errorType = "network";
@@ -234,6 +311,13 @@ export function useUpload({
         }
 
         setUploadItems((prev) =>
+          prev.map((entry) =>
+            entry.id === item.id
+              ? { ...entry, status: "error", message, errorType, canRetry }
+              : entry
+          )
+        );
+        setBatchItems((prev) =>
           prev.map((entry) =>
             entry.id === item.id
               ? { ...entry, status: "error", message, errorType, canRetry }
@@ -271,6 +355,7 @@ export function useUpload({
         }));
         setUploadSelectionWarning(t("UploadForm.totalLimitExceeded"));
         setUploadItems((prev) => [...prev, ...rejectedItems]);
+        setBatchItems((prev) => [...prev, ...rejectedItems]);
         if (fileInputRef.current) fileInputRef.current.value = "";
         updateSelectionStats(null);
         return;
@@ -328,6 +413,7 @@ export function useUpload({
 
       setUploadSelectionWarning("");
       setUploadItems((prev) => [...prev, ...rejectedItems, ...acceptedItems]);
+      setBatchItems((prev) => [...prev, ...rejectedItems, ...acceptedItems]);
 
       if (fileInputRef.current) fileInputRef.current.value = "";
       updateSelectionStats(null);
@@ -364,12 +450,31 @@ export function useUpload({
   }, []);
 
   const overallProgress = useMemo(() => {
-    const activeItems = uploadItems.filter((item) => item.status !== "error");
+    const activeItems = batchItems.filter((item) => item.status !== "error");
     const totalBytes = activeItems.reduce((sum, item) => sum + item.totalBytes, 0);
     if (totalBytes <= 0) return 0;
     const loadedBytes = activeItems.reduce((sum, item) => sum + item.loadedBytes, 0);
     return Math.min(100, Math.round((loadedBytes / totalBytes) * 100));
-  }, [uploadItems]);
+  }, [batchItems]);
+
+  const { batchDoneCount, batchTotalCount } = useMemo(() => {
+    const total = batchItems.length;
+    const done = batchItems.filter((item) => item.status === "success").length;
+    return { batchDoneCount: done, batchTotalCount: total };
+  }, [batchItems]);
+
+  useEffect(() => {
+    // Once nothing is shown anymore, we can drop the internal batch history.
+    // This keeps progress/counts stable while success items auto-dismiss,
+    // but avoids showing stale totals once the queue UI disappears.
+    if (uploadItems.length > 0) return;
+    const hasActive = batchItems.some(
+      (item) => item.status === "queued" || item.status === "uploading"
+    );
+    if (hasActive) return;
+    if (batchItems.length === 0) return;
+    setBatchItems([]);
+  }, [batchItems, uploadItems.length]);
 
   const isUploading = uploadItems.some((item) => item.status === "uploading");
 
@@ -380,6 +485,8 @@ export function useUpload({
     selectionStats,
     uploadSelectionWarning,
     uploadItems,
+    batchDoneCount,
+    batchTotalCount,
     overallProgress,
     isUploading,
     handleFileChange,

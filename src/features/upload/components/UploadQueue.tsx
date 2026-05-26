@@ -6,6 +6,8 @@ import { useUploadQueue } from "../hooks/useUploadQueue";
 type UploadQueueProps = {
   items: UploadItem[];
   overallProgress: number;
+  doneCount: number;
+  totalCount: number;
   onRetry: (id: string) => void;
   onClear: (id: string) => void;
   onCancel: (id: string) => void;
@@ -15,18 +17,20 @@ type UploadQueueProps = {
 export function UploadQueue({
   items,
   overallProgress,
+  doneCount,
+  totalCount,
   onRetry,
   onClear,
   onCancel,
   t,
 }: UploadQueueProps) {
-  const { queueItems, doneCount, totalCount } = useUploadQueue(items, t);
+  const { queueItems } = useUploadQueue(items, t);
 
   if (queueItems.length === 0) return null;
 
   return (
     <div className="upload-queue">
-      <p className="helper">
+      <p className="helper" data-testid="upload-queue-summary">
         {t("UploadForm.queueSummary", {
           progress: overallProgress,
           done: doneCount,

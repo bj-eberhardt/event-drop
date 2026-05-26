@@ -160,6 +160,78 @@ test.describe("guest event view", () => {
     });
   });
 
+  test("keeps overall upload progress stable while success items auto-dismiss", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    testInfo.skip(!baseURL, "baseURL required");
+
+    const mode = getMode();
+    const eventId = getUniqueEventId("e2e-progress");
+    const adminPassword = "adminpass123";
+    await createEvent(
+      request,
+      {
+        name: "Progress Stability Event",
+        description: "",
+        eventId,
+        guestPassword: "",
+        adminPassword,
+        adminPasswordConfirm: adminPassword,
+        allowedMimeTypes: [],
+      },
+      baseURL
+    );
+    cleanup.track({ eventId, adminPassword, baseURL });
+
+    await test.step("mock uploads with different completion times", async () => {
+      let uploadCount = 0;
+      await page.route(`**/api/events/${eventId}/files`, async (route) => {
+        if (route.request().method() !== "POST") {
+          await route.continue();
+          return;
+        }
+        uploadCount += 1;
+        if (uploadCount === 2) {
+          await new Promise((resolve) => setTimeout(resolve, 2500));
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ message: "ok", uploaded: 1 }),
+        });
+      });
+    });
+
+    await test.step("open guest view", async () => {
+      const guestUrl = buildEventUrl(baseURL, mode, eventId);
+      await page.goto(guestUrl);
+      await expect(page.getByTestId("upload-form")).toBeVisible();
+    });
+
+    await test.step("upload two files and reach 100% (2/2)", async () => {
+      const fileInput = page.getByTestId("upload-files-input");
+      await fileInput.setInputFiles([
+        { name: "p1.txt", mimeType: "text/plain", buffer: Buffer.from("p1") },
+        { name: "p2.txt", mimeType: "text/plain", buffer: Buffer.from("p2") },
+      ]);
+
+      const items = page.getByTestId("upload-item");
+      await expect(items).toHaveCount(2);
+      await expect(items.getByTestId("upload-status")).toHaveText([/fertig/i, /fertig/i]);
+
+      await expect(page.getByTestId("upload-queue-summary")).toContainText("(2/2)");
+      await expect(page.getByTestId("upload-queue-summary")).toContainText("100%");
+    });
+
+    await test.step("after first auto-dismiss, totals still show (2/2)", async () => {
+      await expect(page.getByTestId("upload-item")).toHaveCount(1, { timeout: 10_000 });
+      await expect(page.getByTestId("upload-queue-summary")).toContainText("(2/2)");
+      await expect(page.getByTestId("upload-queue-summary")).toContainText("100%");
+    });
+  });
+
   test("upload form reacts to folder requirement and hint", async ({ page, request }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");
