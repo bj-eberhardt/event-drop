@@ -1,4 +1,5 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import step1Avif from "../../../img/step1_small.avif";
 import step1Png from "../../../img/step1_small.png";
 import step2Avif from "../../../img/step2_small.avif";
@@ -19,37 +20,35 @@ type Step = {
 };
 
 export function HowItWorksTimeline() {
+  const { t } = useTranslation();
   const steps = useMemo<Step[]>(
     () => [
       {
-        title: "Erstellen",
-        shortSummary: "Event in wenigen Minuten anlegen.",
-        description:
-          "Erstelle dein Event, vergib Titel und Beschreibung und sichere es optional mit einem Gäste-Passwort.",
+        title: t("HowItWorks.steps.create.title"),
+        shortSummary: t("HowItWorks.steps.create.shortSummary"),
+        description: t("HowItWorks.steps.create.description"),
         image: { avif: step1Avif, png: step1Png },
       },
       {
-        title: "Teilen",
-        shortSummary: "Link an Gäste schicken.",
-        description: "Teile den Upload-Link oder QR-Code, damit alle schnell Zugriff haben.",
+        title: t("HowItWorks.steps.share.title"),
+        shortSummary: t("HowItWorks.steps.share.shortSummary"),
+        description: t("HowItWorks.steps.share.description"),
         image: { avif: step2Avif, png: step2Png },
       },
       {
-        title: "Sammeln",
-        shortSummary: "Gäste laden direkt hoch.",
-        description:
-          "Fotos und Videos landen sofort im Event-Ordner, ohne Chaos in Chats und in voller Auflösung. Dank Ordernamen können die Updates gruppiert werden, z.B. durch Angabe des Namens.",
+        title: t("HowItWorks.steps.collect.title"),
+        shortSummary: t("HowItWorks.steps.collect.shortSummary"),
+        description: t("HowItWorks.steps.collect.description"),
         image: { avif: step3Avif, png: step3Png },
       },
       {
-        title: "Sichten & ZIP",
-        shortSummary: "Uploads prüfen & exportieren.",
-        description:
-          "Überblicke die Dateien, lösche unpassende Bilder und lade alles als ZIP herunter. Du kannst auch alle Bilder den Gästen zugänglich machen.",
+        title: t("HowItWorks.steps.review.title"),
+        shortSummary: t("HowItWorks.steps.review.shortSummary"),
+        description: t("HowItWorks.steps.review.description"),
         image: { avif: step4Avif, png: step4Png },
       },
     ],
-    []
+    [t]
   );
 
   const sectionRef = useRef<HTMLElement | null>(null);
@@ -88,10 +87,9 @@ export function HowItWorksTimeline() {
   return (
     <section className="howitworks" data-testid="home-howitworks" ref={sectionRef}>
       <div className="howitworks-header">
-        <p className="eyebrow large">So funktioniert es</p>
-        <p className="lede">
-          Der Ablauf bleibt für Gäste simpel, während du die Kontrolle behältst.
-        </p>
+        <p className="eyebrow large">{t("HowItWorks.eyebrow")}</p>
+        <h2>{t("HowItWorks.title")}</h2>
+        <p className="lede">{t("HowItWorks.lede")}</p>
       </div>
       <div className="howitworks-track">
         {steps.map((step, index) => (

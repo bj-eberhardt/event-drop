@@ -1,7 +1,7 @@
 {
   "name": "vite-react-docker",
   "private": true,
-  "version": "0.0.21",
+  "version": "0.0.24",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
@@ -22,9 +22,9 @@
     "archiver": "^7.0.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
-    "express": "^4.21.2",
+    "express": "^4.22.2",
     "i18next": "^25.7.3",
-    "multer": "^2.0.0",
+    "multer": "^2.1.1",
     "qrcode.react": "^4.2.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -60,7 +60,7 @@
     "tsx": "^4.19.2",
     "typescript": "^5.8.2",
     "typescript-eslint": "8.48.1",
-    "vite": "7.2.7"
+    "vite": "7.3.2"
   },
   "lint-staged": {
     "{src,server}/**/*.{ts,tsx,js,jsx}": [
