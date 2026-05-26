@@ -232,6 +232,81 @@ test.describe("guest event view", () => {
     });
   });
 
+  test("can pause and resume all uploads", async ({ page, request }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    testInfo.skip(!baseURL, "baseURL required");
+
+    const mode = getMode();
+    const eventId = getUniqueEventId("e2e-pause");
+    const adminPassword = "adminpass123";
+    await createEvent(
+      request,
+      {
+        name: "Pause Upload Event",
+        description: "",
+        eventId,
+        guestPassword: "",
+        adminPassword,
+        adminPasswordConfirm: adminPassword,
+        allowedMimeTypes: [],
+      },
+      baseURL
+    );
+    cleanup.track({ eventId, adminPassword, baseURL });
+
+    await test.step("delay the first upload request", async () => {
+      let uploadAttempts = 0;
+      await page.route(`**/api/events/${eventId}/files`, async (route) => {
+        if (route.request().method() !== "POST") {
+          await route.continue();
+          return;
+        }
+        uploadAttempts += 1;
+        if (uploadAttempts === 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+        try {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ message: "ok", uploaded: 1 }),
+          });
+        } catch {
+          // request was aborted by pause/cancel
+        }
+      });
+    });
+
+    await test.step("open guest view", async () => {
+      const guestUrl = buildEventUrl(baseURL, mode, eventId);
+      await page.goto(guestUrl);
+      await expect(page.getByTestId("upload-form")).toBeVisible();
+    });
+
+    await test.step("start an upload and pause all", async () => {
+      const fileInput = page.getByTestId("upload-files-input");
+      await fileInput.setInputFiles({
+        name: "pause-me.txt",
+        mimeType: "text/plain",
+        buffer: Buffer.from("pause"),
+      });
+
+      const item = page.getByTestId("upload-item").filter({ hasText: "pause-me.txt" });
+      await expect(item.getByTestId("upload-status")).toHaveText(/hochladen|warteschlange/i);
+
+      await page.getByTestId("upload-pause-all").click();
+      await expect(item.getByTestId("upload-status")).toHaveText(/pausiert/i);
+      await expect(page.getByTestId("upload-resume-all")).toBeVisible();
+    });
+
+    await test.step("resume all and finish upload", async () => {
+      await page.getByTestId("upload-resume-all").click();
+
+      const item = page.getByTestId("upload-item").filter({ hasText: "pause-me.txt" });
+      await expect(item.getByTestId("upload-status")).toHaveText(/fertig/i);
+    });
+  });
+
   test("upload form reacts to folder requirement and hint", async ({ page, request }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");

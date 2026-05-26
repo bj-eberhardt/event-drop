@@ -8,7 +8,7 @@ export type SelectionStats = {
   maxBytes: number;
 };
 
-export type UploadItemStatus = "queued" | "uploading" | "success" | "error";
+export type UploadItemStatus = "queued" | "uploading" | "paused" | "success" | "error";
 export type UploadErrorType = "network" | "validation" | "server" | "unknown";
 
 export type UploadItem = {
@@ -46,6 +46,11 @@ export type UseUploadResult = {
   batchTotalCount: number;
   overallProgress: number;
   isUploading: boolean;
+  pauseUploadItem: (id: string) => void;
+  resumeUploadItem: (id: string) => void;
+  pauseAll: () => void;
+  resumeAll: () => void;
+  retryAll: () => void;
   handleFileChange: (fileList: FileList | null) => void;
   clearUploadItem: (id: string) => void;
   retryUploadItem: (id: string) => void;
@@ -154,6 +159,156 @@ export function useUpload({
     },
     [clearUploadItem]
   );
+
+  const pauseUploadItem = useCallback(
+    (id: string) => {
+      const controller = abortControllersRef.current.get(id);
+      if (controller) {
+        canceledIdsRef.current.add(id);
+        controller.abort();
+        abortControllersRef.current.delete(id);
+      }
+
+      setUploadItems((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? { ...item, status: "paused", message: t("UploadForm.paused"), canRetry: false }
+            : item
+        )
+      );
+      setBatchItems((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? { ...item, status: "paused", message: t("UploadForm.paused"), canRetry: false }
+            : item
+        )
+      );
+    },
+    [t]
+  );
+
+  const resumeUploadItem = useCallback((id: string) => {
+    canceledIdsRef.current.delete(id);
+    setUploadItems((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              status: "queued",
+              progress: 0,
+              loadedBytes: 0,
+              message: "",
+              errorType: undefined,
+              canRetry: false,
+            }
+          : item
+      )
+    );
+    setBatchItems((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              status: "queued",
+              progress: 0,
+              loadedBytes: 0,
+              message: "",
+              errorType: undefined,
+              canRetry: false,
+            }
+          : item
+      )
+    );
+  }, []);
+
+  const pauseAll = useCallback(() => {
+    abortControllersRef.current.forEach((controller, id) => {
+      canceledIdsRef.current.add(id);
+      controller.abort();
+    });
+    abortControllersRef.current.clear();
+
+    setUploadItems((prev) =>
+      prev.map((item) =>
+        item.status === "queued" || item.status === "uploading"
+          ? { ...item, status: "paused", message: t("UploadForm.paused"), canRetry: false }
+          : item
+      )
+    );
+    setBatchItems((prev) =>
+      prev.map((item) =>
+        item.status === "queued" || item.status === "uploading"
+          ? { ...item, status: "paused", message: t("UploadForm.paused"), canRetry: false }
+          : item
+      )
+    );
+  }, [t]);
+
+  const resumeAll = useCallback(() => {
+    setUploadItems((prev) =>
+      prev.map((item) =>
+        item.status === "paused"
+          ? {
+              ...item,
+              status: "queued",
+              progress: 0,
+              loadedBytes: 0,
+              message: "",
+              errorType: undefined,
+              canRetry: false,
+            }
+          : item
+      )
+    );
+    setBatchItems((prev) =>
+      prev.map((item) =>
+        item.status === "paused"
+          ? {
+              ...item,
+              status: "queued",
+              progress: 0,
+              loadedBytes: 0,
+              message: "",
+              errorType: undefined,
+              canRetry: false,
+            }
+          : item
+      )
+    );
+  }, []);
+
+  const retryAll = useCallback(() => {
+    setUploadItems((prev) =>
+      prev.map((item) =>
+        item.status === "error" && item.canRetry
+          ? {
+              ...item,
+              status: "queued",
+              progress: 0,
+              loadedBytes: 0,
+              message: "",
+              errorType: undefined,
+              canRetry: false,
+            }
+          : item
+      )
+    );
+    setBatchItems((prev) =>
+      prev.map((item) =>
+        item.status === "error" && item.canRetry
+          ? {
+              ...item,
+              status: "queued",
+              progress: 0,
+              loadedBytes: 0,
+              message: "",
+              errorType: undefined,
+              canRetry: false,
+            }
+          : item
+      )
+    );
+  }, []);
 
   const retryUploadItem = useCallback((id: string) => {
     canceledIdsRef.current.delete(id);
@@ -489,6 +644,11 @@ export function useUpload({
     batchTotalCount,
     overallProgress,
     isUploading,
+    pauseUploadItem,
+    resumeUploadItem,
+    pauseAll,
+    resumeAll,
+    retryAll,
     handleFileChange,
     clearUploadItem,
     retryUploadItem,
