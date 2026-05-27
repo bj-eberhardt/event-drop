@@ -350,6 +350,83 @@ test.describe("rate limit messaging", () => {
     });
   });
 
+  test("offers retry-all when multiple uploads are rate limited", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    testInfo.skip(!baseURL, "baseURL required");
+
+    const mode = getMode();
+    const eventId = getUniqueEventId("e2e-rate-retry-all");
+    const adminPassword = "adminpass123";
+
+    await createEvent(
+      request,
+      {
+        name: "Rate Limit Retry All",
+        description: "",
+        eventId,
+        guestPassword: "",
+        adminPassword,
+        adminPasswordConfirm: adminPassword,
+        allowedMimeTypes: [],
+      },
+      baseURL
+    );
+    cleanup.track({ eventId, adminPassword, baseURL });
+
+    await test.step("mock 429 for the first two upload requests", async () => {
+      let attempts = 0;
+      await page.route(`**/api/events/${eventId}/files`, (route) => {
+        if (route.request().method() !== "POST") {
+          route.continue();
+          return;
+        }
+        attempts += 1;
+        if (attempts <= 2) {
+          route.fulfill({
+            status: 429,
+            contentType: "application/json",
+            body: JSON.stringify({ message: "Too Many Requests" }),
+          });
+          return;
+        }
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ message: "ok", uploaded: 1 }),
+        });
+      });
+    });
+
+    await test.step("open guest view", async () => {
+      const guestUrl = buildEventUrl(baseURL, mode, eventId);
+      await page.goto(guestUrl);
+      await expect(page.getByTestId("upload-form")).toBeVisible();
+    });
+
+    await test.step("upload two files and hit rate limit", async () => {
+      const fileInput = page.getByTestId("upload-files-input");
+      await fileInput.setInputFiles([
+        { name: "r1.txt", mimeType: "text/plain", buffer: Buffer.from("r1") },
+        { name: "r2.txt", mimeType: "text/plain", buffer: Buffer.from("r2") },
+      ]);
+
+      const item1 = page.getByTestId("upload-item").filter({ hasText: "r1.txt" });
+      const item2 = page.getByTestId("upload-item").filter({ hasText: "r2.txt" });
+      await expect(item1.getByTestId("upload-message")).toContainText(RATE_LIMIT_MESSAGE);
+      await expect(item2.getByTestId("upload-message")).toContainText(RATE_LIMIT_MESSAGE);
+      await expect(page.getByTestId("upload-retry-all")).toBeVisible();
+    });
+
+    await test.step("retry all and succeed", async () => {
+      await page.getByTestId("upload-retry-all").click();
+      const items = page.getByTestId("upload-item");
+      await expect(items.getByTestId("upload-status")).toHaveText([/fertig/i, /fertig/i]);
+    });
+  });
+
   test("shows rate limit error on guest login form", async ({ page, request }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");

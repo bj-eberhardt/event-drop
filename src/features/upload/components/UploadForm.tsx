@@ -44,6 +44,11 @@ export function UploadForm({
     batchDoneCount,
     batchTotalCount,
     overallProgress,
+    pauseUploadItem,
+    resumeUploadItem,
+    pauseAll,
+    resumeAll,
+    retryAll,
     handleFileChange,
     clearUploadItem,
     retryUploadItem,
@@ -147,6 +152,11 @@ export function UploadForm({
         overallProgress={overallProgress}
         doneCount={batchDoneCount}
         totalCount={batchTotalCount}
+        onPauseItem={pauseUploadItem}
+        onResumeItem={resumeUploadItem}
+        onPauseAll={pauseAll}
+        onResumeAll={resumeAll}
+        onRetryAll={retryAll}
         onRetry={retryUploadItem}
         onClear={clearUploadItem}
         onCancel={cancelUploadItem}

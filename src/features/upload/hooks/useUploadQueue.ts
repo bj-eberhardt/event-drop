@@ -23,6 +23,8 @@ const getStatusLabel = (status: UploadItemStatus, t: TFunction) => {
       return t("UploadForm.statusQueued");
     case "uploading":
       return t("UploadForm.statusUploading");
+    case "paused":
+      return t("UploadForm.statusPaused");
     case "success":
       return t("UploadForm.statusSuccess");
     default:
@@ -40,7 +42,7 @@ export const useUploadQueue = (items: UploadItem[], t: TFunction): UseUploadQueu
     message: item.message,
     progress: item.progress,
     canRetry: item.canRetry,
-    showCancel: item.status === "queued" || item.status === "uploading",
+    showCancel: item.status === "queued" || item.status === "uploading" || item.status === "paused",
   }));
 
   return { queueItems };

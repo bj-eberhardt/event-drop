@@ -865,6 +865,22 @@ textarea:focus {
   gap: 12px;
 }
 
+.upload-queue-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.upload-queue-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .upload-list {
   display: grid;
   gap: 10px;
@@ -918,6 +934,10 @@ textarea:focus {
 
 .upload-status.uploading {
   color: #60a5fa;
+}
+
+.upload-status.paused {
+  color: #fbbf24;
 }
 
 .upload-status.queued {
