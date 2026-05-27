@@ -410,7 +410,10 @@ test.describe("rate limit messaging", () => {
         { name: "r2.txt", mimeType: "text/plain", buffer: Buffer.from("r2") },
       ]);
 
-      await expect(page.getByTestId("upload-message")).toContainText(RATE_LIMIT_MESSAGE);
+      const item1 = page.getByTestId("upload-item").filter({ hasText: "r1.txt" });
+      const item2 = page.getByTestId("upload-item").filter({ hasText: "r2.txt" });
+      await expect(item1.getByTestId("upload-message")).toContainText(RATE_LIMIT_MESSAGE);
+      await expect(item2.getByTestId("upload-message")).toContainText(RATE_LIMIT_MESSAGE);
       await expect(page.getByTestId("upload-retry-all")).toBeVisible();
     });
 
