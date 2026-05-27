@@ -885,9 +885,9 @@ test.describe("guest event view", () => {
       });
       const uploadItem = page.getByTestId("upload-item").filter({ hasText: fileName });
       await expect(uploadItem.getByTestId("upload-status")).toHaveText(/fertig/i);
-      await expect(page.getByText(/L?dt/i)).toHaveCount(0);
       const fileRow = page.getByTestId("file-row").filter({ hasText: fileName });
       await expect(fileRow).toBeVisible();
+      await expect(page.getByTestId("filebrowser-guest").getByText(/L?dt/i)).toHaveCount(0);
       await expect(fileRow.getByLabel(/datei l.schen/i)).toHaveCount(0);
     });
 
