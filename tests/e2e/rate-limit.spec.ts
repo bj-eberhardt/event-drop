@@ -350,7 +350,10 @@ test.describe("rate limit messaging", () => {
     });
   });
 
-  test("offers retry-all when multiple uploads are rate limited", async ({ page, request }, testInfo) => {
+  test("offers retry-all when multiple uploads are rate limited", async ({
+    page,
+    request,
+  }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");
 
