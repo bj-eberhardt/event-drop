@@ -208,7 +208,13 @@ test.describe("guest event view", () => {
     const item = page.getByTestId("upload-item").filter({ hasText: "locked.txt" });
     await expect(item.getByTestId("upload-status")).toHaveText(/fertig/i);
 
-    const response = await listFiles(request, eventId, baseURL, undefined, folder);
+    const response = await listFiles(
+      request,
+      eventId,
+      baseURL,
+      { type: "admin", password: adminPassword },
+      folder
+    );
     expect(response.ok()).toBeTruthy();
     const body = (await response.json()) as { files?: Array<{ name: string }> };
     expect((body.files ?? []).some((f) => f.name === "locked.txt")).toBeTruthy();
