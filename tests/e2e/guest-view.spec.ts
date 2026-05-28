@@ -160,7 +160,10 @@ test.describe("guest event view", () => {
     });
   });
 
-  test("folder share link locks the upload folder via token", async ({ page, request }, testInfo) => {
+  test("folder share link locks the upload folder via token", async ({
+    page,
+    request,
+  }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     testInfo.skip(!baseURL, "baseURL required");
 
