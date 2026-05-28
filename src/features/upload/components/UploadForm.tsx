@@ -17,6 +17,7 @@ type UploadFormProps = {
   uploadMaxTotalSizeBytes: number;
   uploadFolderHint?: string | null;
   requireUploadFolder?: boolean;
+  fixedFromName?: string;
   onRefreshFiles: () => void;
   successDismissMs?: number;
 };
@@ -29,6 +30,7 @@ export function UploadForm({
   uploadMaxTotalSizeBytes,
   uploadFolderHint,
   requireUploadFolder = false,
+  fixedFromName,
   onRefreshFiles,
   successDismissMs,
 }: UploadFormProps) {
@@ -62,6 +64,7 @@ export function UploadForm({
     uploadMaxTotalSizeBytes,
     onRefreshFiles,
     successDismissMs,
+    initialFromName: fixedFromName,
   });
 
   const maxSizeExceeded =
@@ -72,6 +75,7 @@ export function UploadForm({
     ? isFolderNameValid(fromName)
     : isOptionalFolderNameValid(fromName);
   const effectiveUploadFolderHint = uploadFolderHint?.trim();
+  const fixedFrom = fixedFromName?.trim() || "";
   const statusHintParts: string[] = [];
   if (maxSizeExceeded) statusHintParts.push(t("UploadForm.singleLimitExceeded"));
   if (totalSizeExceeded) statusHintParts.push(t("UploadForm.totalLimitExceeded"));
@@ -98,10 +102,13 @@ export function UploadForm({
           value={fromName}
           onChange={(event) => setFromName(event.target.value)}
           title={t("UploadForm.fromTitle")}
-          disabled={isUploading}
+          disabled={Boolean(fixedFrom) || isUploading}
+          readOnly={Boolean(fixedFrom)}
           data-testid="upload-from-input"
         />
-        {effectiveUploadFolderHint ? (
+        {fixedFrom ? (
+          <p className="hint">{t("UploadForm.fromLockedHint", { folder: fixedFrom })}</p>
+        ) : effectiveUploadFolderHint ? (
           <p className="hint">{effectiveUploadFolderHint}</p>
         ) : (
           <p className="hint">{t("UploadForm.fromHint")}</p>

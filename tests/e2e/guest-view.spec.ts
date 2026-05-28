@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { cleanupEvent, createEvent, listFiles } from "./support/api";
 import { getUniqueEventId } from "./support/ids";
 import { createCleanupTracker } from "./support/cleanup";
-import { buildEventUrl, getMode } from "./support/urls";
+import { buildEventUrl, encodeUploadPresetToken, getMode, withQuery } from "./support/urls";
 
 type GuestEventFixture = {
   eventId: string;
@@ -158,6 +158,66 @@ test.describe("guest event view", () => {
       const validItem = page.getByTestId("upload-item").filter({ hasText: "valid.txt" });
       await expect(validItem.getByTestId("upload-status")).toHaveText(/fertig/i);
     });
+  });
+
+  test("folder share link locks the upload folder via token", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    testInfo.skip(!baseURL, "baseURL required");
+
+    const eventId = getUniqueEventId("e2e-folder-link");
+    const adminPassword = "adminpass123";
+    await createEvent(
+      request,
+      {
+        name: "Folder Link Event",
+        description: "",
+        eventId,
+        guestPassword: "",
+        adminPassword,
+        adminPasswordConfirm: adminPassword,
+        allowedMimeTypes: [],
+      },
+      baseURL
+    );
+    cleanup.track({ eventId, adminPassword, baseURL });
+
+    const mode = getMode();
+    const folder = "Guests 1";
+    const url = withQuery(buildEventUrl(baseURL, mode, eventId), {
+      u: encodeUploadPresetToken(folder),
+    });
+
+    await page.goto(url);
+    await expect(page.getByTestId("upload-form")).toBeVisible();
+
+    const fromInput = page.getByTestId("upload-from-input");
+    await expect(fromInput).toBeDisabled();
+    await expect(fromInput).toHaveValue(folder);
+
+    const fileInput = page.getByTestId("upload-files-input");
+    await expect(fileInput).toBeEnabled();
+    await fileInput.setInputFiles({
+      name: "locked.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("locked upload"),
+    });
+
+    const item = page.getByTestId("upload-item").filter({ hasText: "locked.txt" });
+    await expect(item.getByTestId("upload-status")).toHaveText(/fertig/i);
+
+    const response = await listFiles(
+      request,
+      eventId,
+      baseURL,
+      { type: "admin", password: adminPassword },
+      folder
+    );
+    expect(response.ok()).toBeTruthy();
+    const body = (await response.json()) as { files?: Array<{ name: string }> };
+    expect((body.files ?? []).some((f) => f.name === "locked.txt")).toBeTruthy();
   });
 
   test("keeps overall upload progress stable while success items auto-dismiss", async ({

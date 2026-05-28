@@ -15,3 +15,18 @@ export const buildEventUrl = (baseURL: string, mode: E2EMode, eventId: string, a
   const adminSuffix = admin ? "/admin" : "";
   return `${base.protocol}//${base.hostname}${port}/${eventId}${adminSuffix}`;
 };
+
+export const withQuery = (url: string, query: Record<string, string | undefined>): string => {
+  const u = new URL(url);
+  Object.entries(query).forEach(([key, value]) => {
+    if (value === undefined || value === "") return;
+    u.searchParams.set(key, value);
+  });
+  return u.toString();
+};
+
+export const encodeUploadPresetToken = (folder: string): string => {
+  const json = JSON.stringify({ v: 1, f: folder.trim() });
+  const base64 = Buffer.from(json, "utf8").toString("base64");
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+};
