@@ -106,6 +106,30 @@ test.describe("admin event view", () => {
       expect(clipboard).toBe(shareUrl);
     });
 
+    await test.step("create folder share link in modal and copy/qr", async () => {
+      await page.getByTestId("admin-share-folder-open").click();
+      await expect(page.getByTestId("admin-share-folder-modal")).toBeVisible();
+
+      await page.getByTestId("admin-share-folder-input").fill("Guests 1");
+      const folderLinkInput = page.getByTestId("admin-share-folder-link-input");
+      await expect(folderLinkInput).toHaveValue(/.+/);
+      const folderUrl = await folderLinkInput.inputValue();
+      expect(folderUrl).toMatch(/[?&]u=/);
+
+      await page.getByTestId("admin-share-folder-copy").click();
+      const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+      expect(clipboard).toBe(folderUrl);
+
+      await page.getByTestId("admin-share-folder-qr").click();
+      await expect(page.getByTestId("admin-share-qr-modal")).toBeVisible();
+      await expect(page.getByTestId("admin-share-qr-link")).toContainText(folderUrl);
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("admin-share-qr-modal")).toHaveCount(0);
+
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("admin-share-folder-modal")).toHaveCount(0);
+    });
+
     await test.step("open QR modal and copy link", async () => {
       const mode = getMode();
       const shareUrl = buildEventUrl(adminEvent.baseURL as string, mode, adminEvent.eventId);

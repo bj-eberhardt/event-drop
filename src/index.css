@@ -728,6 +728,12 @@ textarea:focus {
   cursor: pointer;
 }
 
+.ghost-small {
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
 .icon-text-btn {
   display: inline-flex;
   align-items: center;

@@ -7,6 +7,7 @@ import { FileBrowser } from "../files/components/FileBrowser";
 import { UploadForm } from "../upload/components/UploadForm";
 import { PasswordPrompt } from "../../shared/components/PasswordPrompt";
 import { useApiClient } from "../../shared/hooks/useApiClient";
+import { decodeUploadPreset } from "../../lib/uploadLink";
 
 type EventStatus = "loading" | "found" | "missing" | "error" | "locked";
 type EventViewProps = {
@@ -30,6 +31,16 @@ export function EventView({ eventId, baseDomain, onBackHome, onAdmin }: EventVie
 
   const { guestToken, setGuestToken } = useSessionStore();
   const apiClient = useApiClient("guest");
+
+  const uploadPreset = useRef<{ folder: string } | null | undefined>(undefined);
+  if (typeof window !== "undefined" && uploadPreset.current === undefined) {
+    try {
+      const token = new URL(window.location.href).searchParams.get("u") || "";
+      uploadPreset.current = token ? decodeUploadPreset(token) : null;
+    } catch {
+      uploadPreset.current = null;
+    }
+  }
 
   const fetchEvent = useCallback(
     async (client: ApiClient = apiClient) => {
@@ -194,6 +205,7 @@ export function EventView({ eventId, baseDomain, onBackHome, onAdmin }: EventVie
           uploadMaxTotalSizeBytes={data?.uploadMaxTotalSizeBytes ?? 0}
           uploadFolderHint={data?.uploadFolderHint ?? null}
           requireUploadFolder={data?.requireUploadFolder ?? false}
+          fixedFromName={uploadPreset.current?.folder}
           onRefreshFiles={() => setFileBrowserRefresh((key) => key + 1)}
         />
       ) : null}

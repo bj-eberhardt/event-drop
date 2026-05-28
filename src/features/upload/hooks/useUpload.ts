@@ -33,6 +33,7 @@ export type UseUploadOptions = {
   onRefreshFiles?: () => void;
   maxParallelUploads?: number;
   successDismissMs?: number;
+  initialFromName?: string;
 };
 
 export type UseUploadResult = {
@@ -73,11 +74,12 @@ export function useUpload({
   onRefreshFiles,
   maxParallelUploads = 3,
   successDismissMs = 5000,
+  initialFromName,
 }: UseUploadOptions): UseUploadResult {
   const { t } = useTranslation();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [fromName, setFromName] = useState("");
+  const [fromName, setFromName] = useState(() => initialFromName?.trim() ?? "");
   const [selectionStats, setSelectionStats] = useState<SelectionStats>({
     count: 0,
     totalBytes: 0,
@@ -86,6 +88,7 @@ export function useUpload({
   const [uploadSelectionWarning, setUploadSelectionWarning] = useState("");
   const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
   const [batchItems, setBatchItems] = useState<UploadItem[]>([]);
+  const didHydrateInitialFromRef = useRef(false);
 
   const activeUploadsRef = useRef<Set<string>>(new Set());
   const successTimeoutsRef = useRef<Map<string, number>>(new Map());
@@ -131,6 +134,16 @@ export function useUpload({
     });
     setSelectionStats({ count, totalBytes, maxBytes });
   }, []);
+
+  useEffect(() => {
+    if (didHydrateInitialFromRef.current) return;
+    const trimmed = initialFromName?.trim() ?? "";
+    if (!trimmed) return;
+    if (fromName.trim()) return;
+    if (uploadItems.length > 0) return;
+    setFromName(trimmed);
+    didHydrateInitialFromRef.current = true;
+  }, [fromName, initialFromName, uploadItems.length]);
 
   const clearUploadItem = useCallback(
     (id: string) => {

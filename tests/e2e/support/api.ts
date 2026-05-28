@@ -110,12 +110,14 @@ export const listFiles = async (
   request: APIRequestContext,
   eventId: string,
   baseURL?: string,
-  auth?: { type: "guest" | "admin"; password: string }
+  auth?: { type: "guest" | "admin"; password: string },
+  folder?: string
 ) => {
   const apiBase = getApiBaseUrl(baseURL);
   const headers = auth ? { Authorization: toBasicAuth(auth.type, auth.password) } : undefined;
+  const query = folder ? `?folder=${encodeURIComponent(folder)}` : "";
   return withRetry(() =>
-    request.get(`${apiBase}/api/events/${encodeURIComponent(eventId)}/files`, { headers })
+    request.get(`${apiBase}/api/events/${encodeURIComponent(eventId)}/files${query}`, { headers })
   );
 };
 
