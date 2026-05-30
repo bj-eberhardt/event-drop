@@ -49,7 +49,10 @@ export const useFilePreview = ({
   const { t } = useTranslation();
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const requestIdRef = useRef(0);
-  const imageExtensions = useMemo(() => new Set(["jpg", "jpeg", "png", "webp"]), []);
+  const imageExtensions = useMemo(
+    () => new Set(["jpg", "jpeg", "png", "webp", "heic", "heif", "avif"]),
+    []
+  );
 
   const MAX_PREVIEW_SIZE = 1500;
   const getPreviewSize = useCallback(() => {

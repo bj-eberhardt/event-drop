@@ -4,12 +4,12 @@ services:
       context: ../..
       dockerfile: docker/Dockerfile
       target: dev
-    command: npm run dev
+    command: sh -lc "npm ci && npm run dev"
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
     volumes:
       - ../../:/app
-      - /app/node_modules
+      - frontend-node-modules:/app/node_modules
     environment:
       - CHOKIDAR_USEPOLLING=true
       - VITE_API_BASE_URL=http://localhost:${API_PORT:-8080}
@@ -20,18 +20,19 @@ services:
       dockerfile: docker/Dockerfile
       target: deps
     command: >
+      sh -lc "npm ci &&
       ./node_modules/.bin/nodemon
       --legacy-watch
       --watch server
       --ext ts,tsx,js,json
-      --exec "node --inspect=0.0.0.0:9229 --enable-source-maps --require /app/node_modules/tsx/dist/preflight.cjs --import file:///app/node_modules/tsx/dist/loader.mjs server/index.ts"
+      --exec \"node --inspect=0.0.0.0:9229 --enable-source-maps --require /app/node_modules/tsx/dist/preflight.cjs --import file:///app/node_modules/tsx/dist/loader.mjs server/index.ts\""
 
     ports:
       - "${API_PORT:-8080}:8080"
       - "${NODE_DEBUG_PORT:-9229}:9229"
     volumes:
       - ../../:/app
-      - /app/node_modules
+      - api-node-modules:/app/node_modules
       - ./project-data:/data/projects
       - ./project-uploads:/data/uploads
       - ./project-config:/config
@@ -48,3 +49,5 @@ services:
 
 volumes:
   project-data:
+  frontend-node-modules:
+  api-node-modules:

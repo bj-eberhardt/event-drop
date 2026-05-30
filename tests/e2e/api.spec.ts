@@ -286,6 +286,7 @@ const uploadFile = async (
   });
 
 const tinyPng = readFileSync("tests/e2e/assets/sample.png");
+const sampleHeic = readFileSync("docker/dev/project-data/test2/files/IMG_4841.HEIC");
 
 test.afterEach(async ({ request }) => {
   await cleanup.cleanupAll(request);
@@ -1950,6 +1951,34 @@ test.describe("GET /api/events/{eventId}/files/{filename}/preview", () => {
     const body = await response.json();
     expect(body.errorKey).toBe("UNSUPPORTED_FILE_TYPE");
     expect(body.property).toBe("filename");
+  });
+
+  test("returns preview for HEIC/HEIF images (converted to browser-friendly format)", async (
+    { request },
+    testInfo
+  ) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
+    const apiBase = getApiBaseUrl(baseURL);
+
+    await test.step("upload HEIC image", async () => {
+      const { response: uploadResponse } = await uploadFile(
+        request,
+        apiBase,
+        payload.eventId as string,
+        { user: "guest", password: payload.guestPassword as string },
+        { name: "preview.heic", mimeType: "image/heic", content: sampleHeic }
+      );
+      expect(uploadResponse.status()).toBe(200);
+    });
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files/preview.heic/preview?w=320&format=jpeg`,
+      { headers: toAuthHeader({ user: "guest", password: payload.guestPassword as string }) }
+    );
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("image/jpeg");
+    expect((await response.body()).length).toBeGreaterThan(0);
   });
 });
 

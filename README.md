@@ -32,6 +32,8 @@ flowchart LR
 - Admins can require an upload folder and add a custom hint for it.
 - Admins can generate share links that lock uploads to a fixed folder (optional).
 - Admins manage files (preview, delete, ZIP download).
+- Image previews are rendered server-side into browser-friendly formats (`jpeg/webp/png`) and also support `HEIC/HEIF/AVIF` when the backend image stack supports it.
+  - Note: if you restrict an event’s allowed MIME types, include `image/heic`, `image/heif`, `image/avif` (or allow `image/*`) to allow uploading those files.
 
 **⚙️ Hosting & deployment**
 
