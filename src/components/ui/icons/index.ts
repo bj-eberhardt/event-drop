@@ -10,3 +10,4 @@ export { ArchiveIcon } from "./ArchiveIcon";
 export { RenameIcon } from "./RenameIcon";
 export { QrIcon } from "./QrIcon";
 export { CopyIcon } from "./CopyIcon";
+export { LockIcon } from "./LockIcon";

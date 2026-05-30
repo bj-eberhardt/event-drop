@@ -8,6 +8,7 @@ import { UploadForm } from "../upload/components/UploadForm";
 import { PasswordPrompt } from "../../shared/components/PasswordPrompt";
 import { useApiClient } from "../../shared/hooks/useApiClient";
 import { decodeUploadPreset } from "../../lib/uploadLink";
+import { LockIcon } from "../../components/ui/icons";
 
 type EventStatus = "loading" | "found" | "missing" | "error" | "locked";
 type EventViewProps = {
@@ -190,7 +191,19 @@ export function EventView({ eventId, baseDomain, onBackHome, onAdmin }: EventVie
   const fallbackDomain = `${data?.eventId}.${baseDomain}`;
 
   return (
-    <main className="form-page">
+    <main className="form-page event-page">
+      <div className="event-actions" aria-hidden="false">
+        <button
+          className="icon-btn subtle-icon-btn"
+          type="button"
+          onClick={onAdmin}
+          title={t("EventView.adminLogin")}
+          aria-label={t("EventView.adminLogin")}
+          data-testid="event-admin-login-top"
+        >
+          <LockIcon />
+        </button>
+      </div>
       <header className="form-header">
         <p className="eyebrow">{t("EventView.headerEyebrow")}</p>
         <h1>{data?.name || t("EventView.uploadsFallbackTitle", { domain: fallbackDomain })}</h1>
