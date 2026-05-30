@@ -1176,9 +1176,13 @@ test.describe("guest event view", () => {
         const resolvedBox = box as NonNullable<typeof box>;
         const y = resolvedBox.y + resolvedBox.height / 2;
         const startX =
-          direction === "left" ? resolvedBox.x + resolvedBox.width * 0.8 : resolvedBox.x + resolvedBox.width * 0.2;
+          direction === "left"
+            ? resolvedBox.x + resolvedBox.width * 0.8
+            : resolvedBox.x + resolvedBox.width * 0.2;
         const endX =
-          direction === "left" ? resolvedBox.x + resolvedBox.width * 0.2 : resolvedBox.x + resolvedBox.width * 0.8;
+          direction === "left"
+            ? resolvedBox.x + resolvedBox.width * 0.2
+            : resolvedBox.x + resolvedBox.width * 0.8;
         const pointerId = nextPointerId++;
 
         await stage.dispatchEvent("pointerdown", {
