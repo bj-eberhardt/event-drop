@@ -5,6 +5,7 @@ import type { AppConfigResponse } from "../api/types";
 type AppConfigStore = {
   appConfig: AppConfigResponse | null;
   appConfigLoadedAt: number | null;
+  appConfigHost: string | null;
   setAppConfig: (config: AppConfigResponse) => void;
   clearAppConfig: () => void;
   isAppConfigExpired: (ttlMs: number) => boolean;
@@ -18,11 +19,24 @@ export const useAppConfigStore = create<AppConfigStore>()(
     (set, get) => ({
       appConfig: null,
       appConfigLoadedAt: null,
-      setAppConfig: (config) => set({ appConfig: config, appConfigLoadedAt: Date.now() }),
-      clearAppConfig: () => set({ appConfig: null, appConfigLoadedAt: null }),
+      appConfigHost: null,
+      setAppConfig: (config) =>
+        set({
+          appConfig: config,
+          appConfigLoadedAt: Date.now(),
+          appConfigHost: typeof window !== "undefined" ? window.location.host : null,
+        }),
+      clearAppConfig: () => set({ appConfig: null, appConfigLoadedAt: null, appConfigHost: null }),
       isAppConfigExpired: (ttlMs) => {
-        const { appConfigLoadedAt } = get();
+        const { appConfigLoadedAt, appConfigHost } = get();
         if (!appConfigLoadedAt) return true;
+        if (
+          typeof window !== "undefined" &&
+          appConfigHost &&
+          appConfigHost !== window.location.host
+        ) {
+          return true;
+        }
         if (ttlMs <= 0) return false;
         return Date.now() - appConfigLoadedAt > ttlMs;
       },
@@ -33,6 +47,7 @@ export const useAppConfigStore = create<AppConfigStore>()(
       partialize: (state) => ({
         appConfig: state.appConfig,
         appConfigLoadedAt: state.appConfigLoadedAt,
+        appConfigHost: state.appConfigHost,
       }),
     }
   )

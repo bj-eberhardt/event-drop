@@ -161,6 +161,34 @@ docker compose --env-file docker/dev/.env -f docker/dev/docker-compose.dev.yml u
 
 (you can overwrite and configure ports and other settings in [docker/dev/.env](docker/dev/.env))
 
+#### Dev on phone / LAN
+
+If you open the frontend from another device in your LAN (e.g. `http://192.168.x.x:5177/`), `VITE_API_BASE_URL` must not point to `http://localhost:<port>`, because on the phone `localhost` refers to the phone itself.
+
+For `docker/dev`, this is handled automatically:
+
+- The frontend replaces `localhost`/`127.0.0.1` in `VITE_API_BASE_URL` with `window.location.hostname` (e.g. `192.168.x.x`).
+- `CORS_ORIGIN` is empty by default in `docker/dev` (CORS open). Optionally restrict it via `.env`.
+- The app config is cached in `localStorage`, but the cache is invalidated automatically when you switch the hostname (e.g. from `localhost` to `192.168.x.x`) to avoid stale config.
+
+You also need to allow your LAN host in `ALLOWED_DOMAINS` so the frontend doesn't reject the hostname as "not allowed". Add your current LAN IP (or hostname) to `docker/dev/.env` (example values):
+
+```env
+# docker/dev/.env
+ALLOWED_DOMAINS=localhost,192.168.178.74
+```
+
+```env
+# docker/dev/.env
+CORS_ORIGIN=http://192.168.178.74:5177
+```
+
+If the IP changes (DHCP), update `ALLOWED_DOMAINS` accordingly and restart the stack:
+
+```bash
+docker compose --env-file docker/dev/.env -f docker/dev/docker-compose.dev.yml up --build
+```
+
 Ports:
 
 - Frontend 5173

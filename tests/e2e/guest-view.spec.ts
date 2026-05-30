@@ -516,7 +516,7 @@ test.describe("guest event view", () => {
     });
   });
 
-  test("admin login button routes to admin and shows password prompt", async ({
+  test("admin login buttons route to admin and show password prompt", async ({
     page,
     request,
   }, testInfo) => {
@@ -545,6 +545,13 @@ test.describe("guest event view", () => {
     const adminUrl = buildEventUrl(baseURL, mode, eventId, true);
     await page.goto(guestUrl);
 
+    await page.getByTestId("event-admin-login-top").click();
+    await expect(page).toHaveURL(
+      new RegExp(`^${adminUrl.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}/?$`)
+    );
+    await expect(page.getByTestId("password-prompt")).toBeVisible();
+
+    await page.goto(guestUrl);
     await page.getByTestId("event-admin-login").click();
     await expect(page).toHaveURL(
       new RegExp(`^${adminUrl.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}/?$`)
@@ -1096,6 +1103,144 @@ test.describe("guest event view", () => {
 
       await page.getByTestId("preview-close").click();
       await expect(page.getByTestId("modal")).toHaveCount(0);
+    });
+  });
+
+  test.describe("mobile swipe preview", () => {
+    test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+    test("image preview swipe navigation works on mobile", async ({ page, request }, testInfo) => {
+      const baseURL = testInfo.project.use.baseURL as string | undefined;
+      testInfo.skip(!baseURL, "baseURL required");
+
+      const eventId = getUniqueEventId("e2e-preview-swipe");
+      const adminPassword = "adminpass123";
+      const guestPassword = "guestpass123";
+
+      await test.step("create event and open guest view", async () => {
+        await createEvent(
+          request,
+          {
+            name: "Guest Preview Swipe Event",
+            description: "",
+            eventId,
+            guestPassword,
+            adminPassword,
+            adminPasswordConfirm: adminPassword,
+            allowedMimeTypes: ["image/*"],
+            allowGuestDownload: true,
+          },
+          baseURL
+        );
+        cleanup.track({ eventId, adminPassword, baseURL });
+
+        const mode = getMode();
+        const url = buildEventUrl(baseURL, mode, eventId);
+        await page.goto(url);
+        await loginGuest(page, guestPassword);
+        await expect(page.getByTestId("filebrowser-guest")).toBeVisible();
+      });
+
+      await test.step("upload images and open preview", async () => {
+        const fileInput = page.getByTestId("upload-files-input");
+        const files = ["image-1.png", "image-2.png", "image-3.png"];
+        const imageBuffer = Buffer.from(readFileSync(samplePng));
+        await fileInput.setInputFiles(
+          files.map((name) => ({
+            name,
+            mimeType: "image/png",
+            buffer: imageBuffer,
+          }))
+        );
+
+        const uploadItems = page.getByTestId("upload-item").filter({ hasText: "image-" });
+        await expect(uploadItems).toHaveCount(3);
+        await expect(uploadItems.getByTestId("upload-status")).toHaveText([
+          /fertig/i,
+          /fertig/i,
+          /fertig/i,
+        ]);
+
+        const firstRow = page.getByTestId("file-row").filter({ hasText: "image-1.png" });
+        await firstRow.getByTestId("file-open").click();
+        await expect(page.getByText(/Datei 1 von 3/i)).toBeVisible();
+        await expect(page.getByTestId("preview-stage")).toBeVisible();
+        await expect(page.getByTestId("preview-image")).toBeVisible();
+      });
+
+      let nextPointerId = 1;
+      const swipeOnStage = async (direction: "left" | "right") => {
+        const stage = page.getByTestId("preview-stage");
+        const box = await stage.boundingBox();
+        expect(box).toBeTruthy();
+        const resolvedBox = box as NonNullable<typeof box>;
+        const y = resolvedBox.y + resolvedBox.height / 2;
+        const startX =
+          direction === "left" ? resolvedBox.x + resolvedBox.width * 0.8 : resolvedBox.x + resolvedBox.width * 0.2;
+        const endX =
+          direction === "left" ? resolvedBox.x + resolvedBox.width * 0.2 : resolvedBox.x + resolvedBox.width * 0.8;
+        const pointerId = nextPointerId++;
+
+        await stage.dispatchEvent("pointerdown", {
+          pointerId,
+          pointerType: "touch",
+          isPrimary: true,
+          bubbles: true,
+          buttons: 1,
+          clientX: startX,
+          clientY: y,
+        });
+        await stage.dispatchEvent("pointermove", {
+          pointerId,
+          pointerType: "touch",
+          isPrimary: true,
+          bubbles: true,
+          buttons: 1,
+          clientX: Math.round((startX + endX) / 2),
+          clientY: y,
+        });
+        await stage.dispatchEvent("pointermove", {
+          pointerId,
+          pointerType: "touch",
+          isPrimary: true,
+          bubbles: true,
+          buttons: 1,
+          clientX: endX,
+          clientY: y,
+        });
+        await stage.dispatchEvent("pointerup", {
+          pointerId,
+          pointerType: "touch",
+          isPrimary: true,
+          bubbles: true,
+          buttons: 1,
+          clientX: endX,
+          clientY: y,
+        });
+      };
+
+      await test.step("swipe left navigates next; swipe right navigates previous", async () => {
+        await swipeOnStage("left");
+        await expect(page.getByText(/Datei 2 von 3/i)).toBeVisible();
+        await expect(page.getByTestId("preview-image")).toBeVisible();
+
+        await swipeOnStage("right");
+        await expect(page.getByText(/Datei 1 von 3/i)).toBeVisible();
+        await expect(page.getByTestId("preview-image")).toBeVisible();
+      });
+
+      await test.step("swipe at edges does not navigate past first/last", async () => {
+        await expect(page.getByText(/Datei 1 von 3/i)).toBeVisible();
+        await swipeOnStage("right");
+        await expect(page.getByText(/Datei 1 von 3/i)).toBeVisible();
+
+        await swipeOnStage("left");
+        await swipeOnStage("left");
+        await expect(page.getByText(/Datei 3 von 3/i)).toBeVisible();
+
+        await swipeOnStage("left");
+        await expect(page.getByText(/Datei 3 von 3/i)).toBeVisible();
+      });
     });
   });
 });

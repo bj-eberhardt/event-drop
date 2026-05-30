@@ -1,7 +1,29 @@
-export const apiBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "").replace(
+const rawApiBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "").replace(
   /\/$/,
   ""
 );
+
+export const apiBase = (() => {
+  if (!rawApiBase) return "";
+  if (typeof window === "undefined") return rawApiBase;
+
+  try {
+    const url = new URL(rawApiBase);
+    const currentHost = window.location.hostname;
+    const isLocalhost = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+    const isNonLocalClientHost =
+      currentHost && currentHost !== "localhost" && currentHost !== "127.0.0.1";
+
+    if (isLocalhost && isNonLocalClientHost) {
+      const portPart = url.port ? `:${url.port}` : "";
+      return `${url.protocol}//${currentHost}${portPart}`;
+    }
+  } catch {
+    // ignore invalid URLs and keep env value as-is
+  }
+
+  return rawApiBase;
+})();
 
 const parseNumberEnv = (value?: string) => {
   if (!value) return undefined;

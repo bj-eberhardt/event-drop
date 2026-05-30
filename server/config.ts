@@ -53,6 +53,11 @@ const parseStringEnv = (value?: string | null) => {
   return trimmed.length ? trimmed : undefined;
 };
 
+const parseStringEnvAllowEmpty = (value?: string | null) => {
+  if (value === undefined || value === null) return undefined;
+  return value.trim();
+};
+
 const parseStringArrayEnv = (value?: string | null) => {
   const raw = parseStringEnv(value);
   if (!raw) return undefined;
@@ -87,7 +92,7 @@ const envOverrides: Partial<AppConfig> = dropUndefined({
   port: parseNumberEnv(process.env.PORT),
   dataRootPath: parseStringEnv(process.env.DATA_ROOT_PATH),
   uploadTempPath: parseStringEnv(process.env.UPLOAD_TEMP_PATH),
-  corsOrigin: parseStringEnv(process.env.CORS_ORIGIN),
+  corsOrigin: parseStringEnvAllowEmpty(process.env.CORS_ORIGIN),
   jsonLimit: parseStringEnv(process.env.JSON_LIMIT),
   uploadMaxFileSizeBytes: parseNumberEnv(process.env.UPLOAD_MAX_FILE_SIZE_BYTES),
   uploadMaxTotalSizeBytes: parseNumberEnv(process.env.UPLOAD_MAX_TOTAL_SIZE_BYTES),

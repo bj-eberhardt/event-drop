@@ -40,10 +40,11 @@ services:
       - DATA_ROOT_PATH=/data/projects
       - UPLOAD_TEMP_PATH=/data/uploads
       - PORT=8080
+      - ALLOWED_DOMAINS=${ALLOWED_DOMAINS:-localhost}
       - UPLOAD_MAX_FILE_SIZE_BYTES=${UPLOAD_MAX_FILE_SIZE_BYTES:-0}
       - UPLOAD_MAX_TOTAL_SIZE_BYTES=${UPLOAD_MAX_TOTAL_SIZE_BYTES:-0}
       - CHOKIDAR_USEPOLLING=true
-      - CORS_ORIGIN=http://localhost:${FRONTEND_PORT:-5173},http://*.localhost:${FRONTEND_PORT:-5173}
+      - CORS_ORIGIN=${CORS_ORIGIN:-}
       - NODE_OPTIONS=""
       - LOG_LEVEL=debug
 
