@@ -1953,10 +1953,9 @@ test.describe("GET /api/events/{eventId}/files/{filename}/preview", () => {
     expect(body.property).toBe("filename");
   });
 
-  test("returns preview for HEIC/HEIF images (converted to browser-friendly format)", async (
-    { request },
-    testInfo
-  ) => {
+  test("returns preview for HEIC/HEIF images (converted to browser-friendly format)", async ({
+    request,
+  }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     const { payload } = await createEvent(request, baseURL, { allowGuestDownload: true });
     const apiBase = getApiBaseUrl(baseURL);
