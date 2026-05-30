@@ -286,7 +286,10 @@ const uploadFile = async (
   });
 
 const tinyPng = readFileSync("tests/e2e/assets/sample.png");
-const sampleHeic = readFileSync("docker/dev/project-data/test2/files/IMG_4841.HEIC");
+const sampleHeic = Buffer.from(
+  readFileSync("tests/e2e/assets/sample.heic.base64", "utf-8").replace(/\s+/g, ""),
+  "base64"
+);
 
 test.afterEach(async ({ request }) => {
   await cleanup.cleanupAll(request);
