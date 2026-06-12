@@ -48,7 +48,7 @@
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "@types/swagger-ui-express": "^4.1.6",
-    "@vitejs/plugin-react": "5.1.2",
+    "@vitejs/plugin-react": "5.2.0",
     "eslint": "9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^5.2.0",
@@ -59,10 +59,10 @@
     "nodemon": "^3.1.11",
     "prettier": "^3.7.4",
     "ts-node": "^10.9.2",
-    "tsx": "^4.19.2",
+    "tsx": "^4.22.4",
     "typescript": "^5.8.2",
     "typescript-eslint": "8.48.1",
-    "vite": "7.3.2"
+    "vite": "8.0.16"
   },
   "lint-staged": {
     "{src,server}/**/*.{ts,tsx,js,jsx}": [
