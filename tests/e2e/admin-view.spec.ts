@@ -438,12 +438,12 @@ test.describe("admin event view", () => {
 
       const downloadCheckbox = page.getByTestId("admin-guest-download");
       await expect(downloadCheckbox).toBeEnabled();
-      const dialogPromise = page.waitForEvent("dialog");
+      page.once("dialog", async (dialog) => {
+        expect(dialog.type()).toBe("alert");
+        expect(dialog.message()).toMatch(/ohne g\u00e4ste-passwort.*\u00f6ffentlich/i);
+        await dialog.accept();
+      });
       await downloadCheckbox.check();
-      const dialog = await dialogPromise;
-      expect(dialog.type()).toBe("alert");
-      expect(dialog.message()).toMatch(/ohne g\u00e4ste-passwort.*\u00f6ffentlich/i);
-      await dialog.accept();
       await expect(downloadCheckbox).toBeChecked();
 
       await page.getByTestId("admin-settings-save").click();
