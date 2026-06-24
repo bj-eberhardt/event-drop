@@ -407,67 +407,53 @@ test.describe("admin event view", () => {
     await cleanupEvent(request, eventId, adminPassword, baseURL);
   });
 
-  test("guest download checkbox requires guest password", async ({
+  test("guest download checkbox warns without guest password and persists the public setting", async ({
     page,
-    adminEvent,
+    request,
   }, testInfo) => {
-    testInfo.skip(!adminEvent.baseURL, "baseURL required");
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    testInfo.skip(!baseURL, "baseURL required");
 
-    const mode = getMode();
-    const adminUrl = buildEventUrl(adminEvent.baseURL as string, mode, adminEvent.eventId, true);
+    const eventId = getUniqueEventId("e2e-public-download");
+    const adminPassword = "adminpass123";
+    await createEvent(
+      request,
+      {
+        name: "Public Download Event",
+        description: "",
+        eventId,
+        guestPassword: "",
+        adminPassword,
+        adminPasswordConfirm: adminPassword,
+        allowedMimeTypes: [],
+      },
+      baseURL
+    );
 
-    await test.step("open admin settings", async () => {
+    try {
+      const adminUrl = buildEventUrl(baseURL as string, getMode(), eventId, true);
       await page.goto(adminUrl);
-      await loginIfPrompted(page, adminEvent.adminPassword);
-      await expect(page.getByTestId("admin-view")).toBeVisible();
-
+      await loginIfPrompted(page, adminPassword);
       await page.getByTestId("admin-overview-settings").click();
-      await expect(page.getByTestId("admin-settings-form")).toBeVisible();
-    });
 
-    await test.step("enable download when password is set", async () => {
       const downloadCheckbox = page.getByTestId("admin-guest-download");
       await expect(downloadCheckbox).toBeEnabled();
-
+      const dialogPromise = page.waitForEvent("dialog");
       await downloadCheckbox.check();
-      await page.getByTestId("admin-settings-save").click();
-      await expect(page.getByTestId("admin-settings-feedback")).toHaveText(
-        /einstellungen gespeichert/i
-      );
-    });
-
-    await test.step("reload and verify download setting persisted", async () => {
-      await page.goto(adminUrl);
-      await loginIfPrompted(page, adminEvent.adminPassword);
-      await page.getByTestId("admin-overview-settings").click();
-      await expect(page.getByTestId("admin-settings-form")).toBeVisible();
-      await expect(page.getByTestId("admin-guest-download")).toBeChecked();
-    });
-
-    await test.step("disable download when password cleared", async () => {
-      const downloadCheckbox = page.getByTestId("admin-guest-download");
-      await page.getByTestId("admin-guest-password-edit").click();
-      await page.getByTestId("admin-guest-password").fill("");
-      await expect(downloadCheckbox).toBeDisabled();
-      await expect(downloadCheckbox).not.toBeChecked();
+      const dialog = await dialogPromise;
+      expect(dialog.type()).toBe("alert");
+      expect(dialog.message()).toMatch(/ohne g\u00e4ste-passwort.*\u00f6ffentlich/i);
+      await dialog.accept();
+      await expect(downloadCheckbox).toBeChecked();
 
       await page.getByTestId("admin-settings-save").click();
       await expect(page.getByTestId("admin-settings-feedback")).toHaveText(
         /einstellungen gespeichert/i
       );
-    });
-
-    await test.step("reload and verify download remains disabled", async () => {
-      await page.goto(adminUrl);
-      await loginIfPrompted(page, adminEvent.adminPassword);
-      await page.getByTestId("admin-overview-settings").click();
-      await expect(page.getByTestId("admin-settings-form")).toBeVisible();
-      const downloadCheckbox = page.getByTestId("admin-guest-download");
-      await expect(downloadCheckbox).toBeDisabled();
-      await expect(downloadCheckbox).not.toBeChecked();
-    });
+    } finally {
+      await cleanupEvent(request, eventId, adminPassword, baseURL);
+    }
   });
-
   test("admin settings persist upload folder requirement and hint", async ({
     page,
     request,

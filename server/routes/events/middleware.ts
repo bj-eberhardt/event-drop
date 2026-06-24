@@ -127,11 +127,10 @@ export const ensureGuestDownloadsEnabled: RequestHandler<{ eventId?: string }, E
   }
 
   if (req.user?.role === "guest") {
-    const guestDownloadsEnabled =
-      event.settings.allowGuestDownload && Boolean(event.auth.guestPasswordHash);
+    const guestDownloadsEnabled = event.settings.allowGuestDownload;
     if (!guestDownloadsEnabled) {
       return sendError(res, 403, {
-        message: "Guest downloads require a set guest password.",
+        message: "Guest downloads are disabled.",
         errorKey: "GUEST_DOWNLOADS_DISABLED",
         eventId: event.eventId,
       });

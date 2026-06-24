@@ -215,7 +215,7 @@ const createEvent = async (
     const body = await response.json();
     const guestPassword = payload.guestPassword as string;
     const secured = Boolean(guestPassword);
-    const allowGuestDownload = payload.allowGuestDownload === true && secured;
+    const allowGuestDownload = payload.allowGuestDownload === true;
     const allowGuestUpload = payload.allowGuestUpload !== false;
     const requireUploadFolder = payload.requireUploadFolder === true;
     const uploadFolderHint =
@@ -424,16 +424,15 @@ test.describe("POST /api/events", () => {
     expect(body.errorKey).toBe("INVALID_INPUT");
   });
 
-  test("rejects allowGuestDownload without guest password", async ({ request }, testInfo) => {
+  test("allows allowGuestDownload without guest password", async ({ request }, testInfo) => {
     const apiBase = getApiBaseUrl(testInfo.project.use.baseURL as string | undefined);
     const payload = createEventPayload({ guestPassword: "", allowGuestDownload: true });
     const response = await request.post(`${apiBase}/api/events`, { data: payload });
-    expect(response.status()).toBe(400);
+    expect(response.status()).toBe(200);
     const body = await response.json();
-    expect(body.property).toBe("allowGuestDownload");
-    expect(body.errorKey).toBe("INVALID_INPUT");
+    expect(body.secured).toBe(false);
+    expect(body.allowGuestDownload).toBe(true);
   });
-
   test("rejects duplicate eventId", async ({ request }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     const { payload } = await createEvent(request, baseURL);
@@ -657,10 +656,9 @@ test.describe("PATCH /api/events/{eventId}", () => {
     expect(body.property).toBe("guestPassword");
   });
 
-  test("rejects allowGuestDownload without guest password", async ({ request }, testInfo) => {
+  test("allows allowGuestDownload without guest password", async ({ request }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     const { payload } = await createEvent(request, baseURL, { guestPassword: "" });
-
     const apiBase = getApiBaseUrl(baseURL);
     const response = await request.patch(
       `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}`,
@@ -669,12 +667,11 @@ test.describe("PATCH /api/events/{eventId}", () => {
         data: { allowGuestDownload: true },
       }
     );
-    expect(response.status()).toBe(400);
+    expect(response.status()).toBe(200);
     const body = await response.json();
-    expect(body.errorKey).toBe("INVALID_INPUT");
-    expect(body.property).toBe("allowGuestDownload");
+    expect(body.secured).toBe(false);
+    expect(body.allowGuestDownload).toBe(true);
   });
-
   test("rejects invalid mime type", async ({ request }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     const { payload } = await createEvent(request, baseURL);
@@ -1051,6 +1048,23 @@ test.describe("GET /api/events/{eventId}/files", () => {
     expectListFilesBody(body, { folder: "", folders: [], files: [] });
   });
 
+  test("lists files without auth when public downloads are enabled", async ({
+    request,
+  }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL as string | undefined;
+    const { payload } = await createEvent(request, baseURL, {
+      guestPassword: "",
+      allowGuestDownload: true,
+    });
+    const apiBase = getApiBaseUrl(baseURL);
+
+    const response = await request.get(
+      `${apiBase}/api/events/${encodeURIComponent(payload.eventId as string)}/files`
+    );
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expectListFilesBody(body, { folder: "", folders: [], files: [] });
+  });
   test("rejects missing auth on secured event", async ({ request }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL as string | undefined;
     const { payload } = await createEvent(request, baseURL);

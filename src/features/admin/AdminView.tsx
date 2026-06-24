@@ -123,7 +123,7 @@ export function AdminView({
             return;
           }
           const secured = Boolean(eventInfo.secured);
-          const allowDownload = Boolean(eventInfo.allowGuestDownload && secured);
+          const allowDownload = Boolean(eventInfo.allowGuestDownload);
           setEventSettings({
             ...eventInfo,
             secured,

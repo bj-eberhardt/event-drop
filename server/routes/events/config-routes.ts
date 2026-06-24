@@ -94,14 +94,6 @@ export const registerConfigRoutes = (router: express.Router) => {
           });
         }
 
-        if (allowGuestDownload && (!guestPassword || guestPassword.length < 4)) {
-          return sendError(res, 400, {
-            message: "Guest downloads require a set guest password.",
-            errorKey: "INVALID_INPUT",
-            property: "allowGuestDownload",
-          });
-        }
-
         if (allowGuestDownload === false && allowGuestUpload === false) {
           return sendError(res, 400, {
             message: "Guest uploads or downloads must be enabled.",
@@ -184,13 +176,6 @@ export const registerConfigRoutes = (router: express.Router) => {
         }
 
         if (allowGuestDownload !== undefined) {
-          if (allowGuestDownload && !updated.auth.guestPasswordHash) {
-            return sendError(res, 400, {
-              message: "Guest downloads require a set guest password.",
-              errorKey: "INVALID_INPUT",
-              property: "allowGuestDownload",
-            });
-          }
           updated.settings.allowGuestDownload = Boolean(allowGuestDownload);
         }
 
