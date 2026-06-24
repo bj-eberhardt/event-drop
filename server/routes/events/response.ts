@@ -6,7 +6,7 @@ export const buildEventResponse = (
   accessLevel: AccessLevel = "unauthenticated"
 ): EventConfigResponse => {
   const secured = Boolean(event.auth.guestPasswordHash);
-  const allowGuestDownload = Boolean(event.settings.allowGuestDownload && secured);
+  const allowGuestDownload = Boolean(event.settings.allowGuestDownload);
   const allowGuestUpload = event.settings.allowGuestUpload ?? true;
   return {
     eventId: event.eventId,

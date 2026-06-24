@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiClient } from "../../../api/client";
 import type { EventInfo, UpdateEventRequest } from "../../../api/types";
@@ -69,11 +69,6 @@ export function AdminSettings({
   const hasNewGuestPassword = !guestPasswordMasked && trimmedGuestPassword.length > 0;
   const isRemovingPassword =
     !guestPasswordMasked && eventInfo.secured && trimmedGuestPassword.length === 0;
-  const guestPasswordActive = useMemo(
-    () => !isRemovingPassword && (eventInfo.secured || hasNewGuestPassword || guestPasswordMasked),
-    [guestPasswordMasked, hasNewGuestPassword, isRemovingPassword, eventInfo.secured]
-  );
-  const allowGuestDownloadDisabled = !guestPasswordActive;
   const trimmedName = eventName.trim();
   const trimmedDescription = eventDescription.trim();
   const trimmedUploadFolderHint = uploadFolderHint.trim();
@@ -90,12 +85,6 @@ export function AdminSettings({
   const isBusy = loading || settingsStatus === "saving";
   const passwordValue = guestPasswordMasked ? MASKED_GUEST_PASSWORD : guestPasswordInput;
   const guestAccessInvalid = !allowGuestDownload && !allowGuestUpload;
-
-  useEffect(() => {
-    if (!guestPasswordActive && allowGuestDownload) {
-      setAllowGuestDownload(false);
-    }
-  }, [allowGuestDownload, guestPasswordActive]);
 
   const handlePasswordFocus = () => {
     if (guestPasswordMasked) {
@@ -117,6 +106,9 @@ export function AdminSettings({
   };
 
   const handleAllowGuestDownloadChange = (checked: boolean) => {
+    if (checked && !eventInfo.secured && !hasNewGuestPassword) {
+      window.alert(t("AdminSettings.downloadWithoutPasswordWarning"));
+    }
     setAllowGuestDownload(checked);
   };
 
@@ -178,7 +170,7 @@ export function AdminSettings({
     try {
       const response = await apiClient.updateEvent(eventId, payload);
       const secured = Boolean(response.secured);
-      const allowDownloads = Boolean(response.allowGuestDownload && secured);
+      const allowDownloads = Boolean(response.allowGuestDownload);
       const nextUploadFolderHint = response.uploadFolderHint ?? null;
 
       onEventUpdate({
@@ -303,7 +295,7 @@ export function AdminSettings({
             <input
               type="checkbox"
               checked={allowGuestDownload}
-              disabled={allowGuestDownloadDisabled || isBusy}
+              disabled={isBusy}
               onChange={(e) => handleAllowGuestDownloadChange(e.target.checked)}
               data-testid="admin-guest-download"
             />
