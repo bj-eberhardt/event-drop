@@ -24,7 +24,7 @@
     "cors": "^2.8.5",
     "express": "^4.22.3",
     "heic-convert": "^2.1.0",
-    "i18next": "^25.7.3",
+    "i18next": "^27.2.7",
     "multer": "^2.5.0",
     "qrcode.react": "^4.2.0",
     "react": "19.2.3",
